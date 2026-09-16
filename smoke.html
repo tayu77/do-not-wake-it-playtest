@@ -3,23 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Collector Smoke Test</title>
-<style>body{font-family:system-ui,sans-serif;background:#111;color:#eee;max-width:680px;margin:40px auto;padding:20px}button{font-size:18px;padding:14px 20px;border:0;border-radius:10px}#s{margin-top:18px;line-height:1.6}</style>
+<title>Collector Close Test</title>
+<style>body{font-family:system-ui,sans-serif;background:#111;color:#eee;max-width:680px;margin:40px auto;padding:20px}button{font-size:18px;padding:14px 20px;border:0;border-radius:10px}#s{margin-top:18px;line-height:1.6}.ok{color:#91db9d}.ng{color:#ff9f9f}</style>
 </head>
 <body>
-<h1>Do Not Wake It — 送信テスト</h1>
-<p>このページは自動集計経路だけを確認するための一時的なスモークテストです。ゲーム結果としては扱わないでください。</p>
-<button id="b">テストデータを送信</button>
+<h1>Do Not Wake It — 即閉じ送信テスト</h1>
+<p>ボタンを押して緑の表示が出たら、<b>すぐにこのページを閉じてください。</b> 送信完了を待つ必要はありません。</p>
+<button id="b">送信予約してすぐ閉じる</button>
 <div id="s"></div>
 <script>
 const URL='https://script.google.com/macros/s/AKfycbwDGy7KUEnEYc4LuNQR8ThJCIesUkTNAGT_StDzwhVCH7v1Wk3N9rlU_3gsA35sDSWC/exec';
 const s=document.getElementById('s'),b=document.getElementById('b');
-b.onclick=async()=>{
- b.disabled=true;s.textContent='送信中…';
- const id='smoke-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
- const payload={test_id:id,build:'SMOKE_TEST_DO_NOT_ANALYZE',device:'SMOKE',session_seconds:0,banked:0,picked:0,escapes:0,caught:0,post_wake_pickups:0,post_wake_rooms:0,awake_escapes:0,clears:0,calm_exits:0,warning_pickups:0,q1_next_change:'SMOKE',q2_main_thought:'SMOKE',q3_replay:'SMOKE',q4_steal_all:'SMOKE',room_logs:[]};
- try{await fetch(URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});s.innerHTML='ブラウザから送信要求を出しました。<br>test_id: <code>'+id+'</code><br>このIDがスプレッドシートに入れば接続成功です。'}catch(e){s.textContent='送信時にネットワークエラーが発生しました: '+e}
-};
+let pending=null;
+function makePayload(){const id='beacon-smoke-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);return{test_id:id,build:'BEACON_CLOSE_SMOKE_DO_NOT_ANALYZE',device:'SMOKE',session_seconds:0,banked:0,picked:0,escapes:0,caught:0,post_wake_pickups:0,post_wake_rooms:0,awake_escapes:0,clears:0,calm_exits:0,warning_pickups:0,q1_next_change:'SMOKE',q2_main_thought:'SMOKE',q3_replay:'SMOKE',q4_steal_all:'SMOKE',room_logs:[]}}
+function beacon(){if(!pending||!navigator.sendBeacon)return false;try{return navigator.sendBeacon(URL,JSON.stringify(pending))}catch(_){return false}}
+b.onclick=()=>{b.disabled=true;pending=makePayload();const ok=beacon();if(ok){s.className='ok';s.innerHTML='送信予約しました。<b>今すぐページを閉じてください。</b><br>test_id: <code>'+pending.test_id+'</code>'}else{s.className='ng';s.textContent='このブラウザでは即時送信予約ができませんでした。ページを閉じずに担当者へ知らせてください。'}};
+addEventListener('pagehide',beacon);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')beacon()});
 </script>
 </body>
 </html>
