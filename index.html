@@ -39,7 +39,7 @@ button{border:0;border-radius:10px;padding:12px 17px;min-height:46px;font-size:1
     </div></div>
     <div id="summary" class="overlay"><div class="card">
       <h2>テスト終了</h2><div id="metrics" class="metrics"></div>
-      <p class="small">4問すべて選ぶと、結果は自動で送信されます。</p>
+      <p class="small">4問すべて選ぶと結果を送信予約します。「画面を閉じて大丈夫です」と表示されたら、待たずに閉じて構いません。</p>
       <div class="question"><p>もう1回やるなら、何を変える？</p><div class="choices">
         <label class="choice"><input type="radio" name="retryChange" value="もっと多く盗む">もっと多く盗む</label>
         <label class="choice"><input type="radio" name="retryChange" value="もっと早く逃げる">もっと早く逃げる</label>
@@ -71,7 +71,7 @@ button{border:0;border-radius:10px;padding:12px 17px;min-height:46px;font-size:1
 (()=>{'use strict';
 const $=id=>document.getElementById(id),canvas=$('canvas'),ctx=canvas.getContext('2d'),W=960,H=600,TOTAL=10,WAKE_GRACE=.8;
 const COLLECTOR_URL='https://script.google.com/macros/s/AKfycbwDGy7KUEnEYc4LuNQR8ThJCIesUkTNAGT_StDzwhVCH7v1Wk3N9rlU_3gsA35sDSWC/exec';
-const BUILD='focused-auto-2026-09-16';
+const BUILD='focused-beacon-2026-09-16',PENDING_KEY='dnwi-pending-result-v1';
 const touchDevice=('ontouchstart'in window)||navigator.maxTouchPoints>0||matchMedia('(pointer:coarse)').matches,device=touchDevice?'スマホ/タブレット':'PC';
 $('touch').style.display=touchDevice?'block':'none';
 $('help').innerHTML=touchDevice?'<li>左下スティック：移動</li><li>右下「盗む」：品物を盗む</li><li>緑の出口：戦利品を確保</li>':'<li>WASD / 矢印キー：移動</li><li>E / Space：品物を盗む</li><li>緑の出口：戦利品を確保</li>';
@@ -80,7 +80,7 @@ const TYPES=[{name:'静か',shape:'circle',color:'#83c878',noise:8},{name:'や�
 const player={x:0,y:0,r:11,speed:190},monster={x:0,y:0,r:36,awake:false,wake:0,threshold:86,age:0};
 let state='intro',roomIndex=0,current=null,items=[],walls=[],exit=null,haul=0,bank=0,between=0,last=performance.now(),banner='',bannerSub='',roomPostWake=0,roomLog=null,logs=[],stats=resetStats(),keys=new Set(),joy={x:0,y:0},stickPointer=null;
 let sessionStartedAt=0,testId='',submissionState='idle';
-function newTestId(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():'t-'+Date.now()+'-'+Math.random().toString(36).slice(2)}
+function newTestId(){return (typeof crypto!=='undefined'&&crypto.randomUUID)?crypto.randomUUID():'t-'+Date.now()+'-'+Math.random().toString(36).slice(2)}
 function resetStats(){return{picked:0,postWake:0,postWakeRooms:0,escapes:0,caught:0,awakeEscapes:0,clears:0,calmExits:0,warningPickups:0}}
 function rng(seed){return()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296)}
 function makeItem(x,y,type,value){return{x,y,type:TYPES[type],value,taken:false}}
@@ -90,7 +90,7 @@ function makeRoom(index){
  if(family===0){[[290,440,0,58],[670,440,0,64],[255,335,1,92],[705,335,1,78],[425,295,2,128],[540,295,0,116],[350,190,1,70],[610,190,2,104],[230,135,0,49],[730,135,1,86]].forEach(p=>add(...p));if(variant){start=[150,520];ex={side:'top',x:710,y:0,w:140,h:26}}}
  else if(family===1){start=[variant?790:170,510];m=[480,285];ex={side:variant?'right':'left',x:variant?934:0,y:405,w:26,h:145};[[250,475,0,70],[340,410,1,55],[420,345,0,102],[545,260,1,126],[650,210,0,84],[770,175,2,132],[810,255,1,61],[700,355,2,96],[570,435,0,118],[430,495,1,76]].forEach(p=>add(...p))}
  else if(family===2){[[235,415,0,65],[285,350,1,104],[330,275,2,91],[250,205,0,112],[725,415,0,73],[675,350,1,87],[625,275,2,124],[710,205,0,56],[445,395,1,119],[520,395,1,68]].forEach((p,i)=>{if(variant&&i%2===1)p=[p[0],p[1],(p[2]+1)%3,p[3]];add(...p)});if(variant)ex={side:'left',x:0,y:405,w:26,h:145}}
- else if(family===3){start=[variant?820:145,505];m=[variant?455:520,260];ex={side:variant?'left':'right',x:variant?0:934,y:405,w:26,h:145};if(variant){ws.push({x:610,y:190,w:50,h:230},{x:300,y:330,w:50,h:210})}else{ws.push({x:300,y:190,w:50,h:230},{x:610,y:330,w:50,h:210})}[[220,470,0,78],[390,470,1,103],[500,430,0,92],[740,470,1,69],[820,390,2,125],[730,250,0,113],[590,180,1,82],[455,160,2,101],[245,135,0,57],[780,130,1,121]].forEach(p=>add(...p))}
+ else if(family===3){start=[variant?820:145,505];m=[variant?455:520,260];ex={side:variant?'left':'right',x:variant?0:934,y:405,w:26,h:145};if(variant){ws.push({x:610,y:190,w:50,h:230},{x:300,y:330,w:50,h:210})}else{ws.push({x:300,y:190,w:50,h:230},{x:610,y:330,w:50,h:210})}[[220,470,0,78],[390,470,1,103],[500,430,0,92],[740,470,1],[820,390,2],[730,250,0],[590,180,1],[455,160,2],[245,135,0],[780,130,1]].forEach((p,i)=>{const vals=[78,103,92,69,125,113,82,101,57,121];add(p[0],p[1],p[2],vals[i])})}
  else{[[250,455,0,62],[360,445,0,95],[600,445,0,72],[710,450,1,111],[230,350,1,88],[730,350,0,119],[310,270,1,73],[650,270,1,98],[440,225,2,138],[525,220,0,129]].forEach((p,i)=>{if(variant&&i===9)p=[p[0],p[1],2,p[3]];add(...p)});if(variant){start=[160,500];ex={side:'top',x:85,y:0,w:140,h:26}}}
  return{id:String.fromCharCode(65+family)+(variant?'2':'1'),family,start,m,exit:ex,walls:ws,items:arr,threshold:82+Math.round(r()*10)};
 }
@@ -116,16 +116,23 @@ function selected(name){const el=document.querySelector(`input[name="${name}"]:c
 function allAnswered(){return ['retryChange','mainThought','replay','completion'].every(n=>selected(n))}
 function payload(){return{test_id:testId,build:BUILD,device,session_seconds:Math.max(0,Math.round((Date.now()-sessionStartedAt)/1000)),banked:bank,picked:stats.picked,escapes:stats.escapes,caught:stats.caught,post_wake_pickups:stats.postWake,post_wake_rooms:stats.postWakeRooms,awake_escapes:stats.awakeEscapes,clears:stats.clears,calm_exits:stats.calmExits,warning_pickups:stats.warningPickups,q1_next_change:selected('retryChange'),q2_main_thought:selected('mainThought'),q3_replay:selected('replay'),q4_steal_all:selected('completion'),room_logs:logs}}
 function resultText(){const p=payload();let s=`Do Not Wake It Focused Prototype\nテストID: ${p.test_id}\n端末: ${device}\n確保額: $${bank}\n盗んだ個数: ${stats.picked}\n脱出: ${stats.escapes}\n捕まった: ${stats.caught}\n起床後に盗んだ個数: ${stats.postWake}\n起床後も盗んだ部屋: ${stats.postWakeRooms}/${TOTAL}\n全回収: ${stats.clears}\n平静時脱出: ${stats.calmExits}\n警告後取得: ${stats.warningPickups}\n\nもう1回やるなら: ${p.q1_next_change}\n一番考えていたこと: ${p.q2_main_thought}\nもう1回やりたい: ${p.q3_replay}\n全部盗みたい気持ち: ${p.q4_steal_all}\n\nROOM LOG\n`;logs.forEach(l=>{s+=`${l.room} ${l.id} | ${l.result} | 残り${l.left} | 確保$${l.haul} | 起床${l.wake?'あり':'なし'} | 取得順:`+l.pickups.map(p=>`${p.value}/${p.noise}/cue${p.cue}${p.awake?'*':''}`).join(',')+'\n'});return s}
+function savePending(p){try{localStorage.setItem(PENDING_KEY,JSON.stringify(p));return true}catch(_){return false}}
+function readPending(){try{const raw=localStorage.getItem(PENDING_KEY);return raw?JSON.parse(raw):null}catch(_){return null}}
+function clearPending(id){try{const p=readPending();if(!p||p.test_id===id)localStorage.removeItem(PENDING_KEY)}catch(_){}}
+function queueBeacon(p){if(!p||!navigator.sendBeacon)return false;try{return navigator.sendBeacon(COLLECTOR_URL,JSON.stringify(p))}catch(_){return false}}
+async function confirmByFetch(p){if(!p)return false;try{await fetch(COLLECTOR_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p),keepalive:true});clearPending(p.test_id);return true}catch(_){return false}}
+function retryPending(){const p=readPending();if(!p)return;queueBeacon(p);confirmByFetch(p)}
+function flushPending(){const p=readPending();if(p)queueBeacon(p)}
 function lockAnswers(locked){document.querySelectorAll('#summary input[type="radio"]').forEach(el=>el.disabled=locked);document.querySelectorAll('#summary .choice').forEach(el=>el.classList.toggle('disabled',locked))}
-async function autoSubmit(){
+function autoSubmit(){
  if(submissionState!=='idle'||!allAnswered())return;
- submissionState='sending';lockAnswers(true);$('answerNote').className='answer-note sending';$('answerNote').textContent='結果を自動送信しています…';
- try{
-  await fetch(COLLECTOR_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload()),keepalive:true});
-  submissionState='sent';$('answerNote').className='answer-note ok';$('answerNote').textContent='送信しました。ご協力ありがとうございました。';$('copyBtn').style.display='none';
- }catch(err){
-  submissionState='failed';lockAnswers(false);$('answerNote').className='answer-note error';$('answerNote').textContent='自動送信できませんでした。「結果をコピー」を押して担当者へ送ってください。';$('copyBtn').style.display='inline-block';
+ const p=payload();savePending(p);lockAnswers(true);
+ const beaconQueued=queueBeacon(p);
+ if(beaconQueued){
+  submissionState='queued';$('answerNote').className='answer-note ok';$('answerNote').textContent='送信を受け付けました。もう画面を閉じて大丈夫です。ご協力ありがとうございました。';$('copyBtn').style.display='none';confirmByFetch(p);return;
  }
+ submissionState='sending';$('answerNote').className='answer-note sending';$('answerNote').textContent='結果を送信しています。少しだけお待ちください…';
+ confirmByFetch(p).then(ok=>{if(ok){submissionState='sent';$('answerNote').className='answer-note ok';$('answerNote').textContent='送信しました。画面を閉じて大丈夫です。ご協力ありがとうございました。';$('copyBtn').style.display='none'}else{submissionState='failed';lockAnswers(false);$('answerNote').className='answer-note error';$('answerNote').textContent='自動送信できませんでした。「結果をコピー」を押して担当者へ送ってください。';$('copyBtn').style.display='inline-block'}});
 }
 function showSummary(){state='summary';document.body.classList.remove('playing');$('summary').style.display='flex';$('metrics').innerHTML=`<div class="metric">確保額<b>$${bank}</b></div><div class="metric">盗んだ個数<b>${stats.picked}</b></div><div class="metric">脱出<b>${stats.escapes}</b></div><div class="metric">捕まった<b>${stats.caught}</b></div><div class="metric">起床後に盗んだ個数<b>${stats.postWake}</b></div><div class="metric">全回収できた部屋<b>${stats.clears}</b></div>`}
 function clearAnswers(){document.querySelectorAll('#summary input[type="radio"]').forEach(el=>{el.checked=false;el.disabled=false});document.querySelectorAll('#summary .choice').forEach(el=>el.classList.remove('disabled'));$('answerNote').className='answer-note';$('answerNote').textContent='';$('copyBtn').style.display='none';submissionState='idle'}
@@ -141,6 +148,7 @@ const stick=$('stick'),knob=$('knob');function setJoy(e){const r=stick.getBoundi
 stick.addEventListener('pointerdown',e=>{e.preventDefault();stickPointer=e.pointerId;stick.setPointerCapture(e.pointerId);setJoy(e)});stick.addEventListener('pointermove',e=>{if(e.pointerId===stickPointer){e.preventDefault();setJoy(e)}});stick.addEventListener('pointerup',e=>{if(e.pointerId===stickPointer){stickPointer=null;clearJoy()}});stick.addEventListener('pointercancel',()=>{stickPointer=null;clearJoy()});
 document.querySelectorAll('#summary input[type="radio"]').forEach(el=>el.addEventListener('change',autoSubmit));
 $('copyBtn').addEventListener('click',async()=>{const text=resultText();$('copyText').value=text;try{await navigator.clipboard.writeText(text);$('copyBtn').textContent='コピーしました';setTimeout(()=>$('copyBtn').textContent='結果をコピー',1800)}catch(_){$('copyText').style.display='block';$('copyText').select();$('copyBtn').textContent='下の欄を長押ししてコピー'}});$('againBtn').addEventListener('click',restart);
+addEventListener('pagehide',flushPending);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushPending()});addEventListener('online',retryPending);retryPending();
 requestAnimationFrame(frame);
 })();
 </script>
