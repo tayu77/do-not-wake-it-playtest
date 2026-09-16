@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Collector Smoke Test</title>
+<style>body{font-family:system-ui,sans-serif;background:#111;color:#eee;max-width:680px;margin:40px auto;padding:20px}button{font-size:18px;padding:14px 20px;border:0;border-radius:10px}#s{margin-top:18px;line-height:1.6}</style>
+</head>
+<body>
+<h1>Do Not Wake It — 送信テスト</h1>
+<p>このページは自動集計経路だけを確認するための一時的なスモークテストです。ゲーム結果としては扱わないでください。</p>
+<button id="b">テストデータを送信</button>
+<div id="s"></div>
+<script>
+const URL='https://script.google.com/macros/s/AKfycbwDGy7KUEnEYc4LuNQR8ThJCIesUkTNAGT_StDzwhVCH7v1Wk3N9rlU_3gsA35sDSWC/exec';
+const s=document.getElementById('s'),b=document.getElementById('b');
+b.onclick=async()=>{
+ b.disabled=true;s.textContent='送信中…';
+ const id='smoke-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+ const payload={test_id:id,build:'SMOKE_TEST_DO_NOT_ANALYZE',device:'SMOKE',session_seconds:0,banked:0,picked:0,escapes:0,caught:0,post_wake_pickups:0,post_wake_rooms:0,awake_escapes:0,clears:0,calm_exits:0,warning_pickups:0,q1_next_change:'SMOKE',q2_main_thought:'SMOKE',q3_replay:'SMOKE',q4_steal_all:'SMOKE',room_logs:[]};
+ try{await fetch(URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});s.innerHTML='ブラウザから送信要求を出しました。<br>test_id: <code>'+id+'</code><br>このIDがスプレッドシートに入れば接続成功です。'}catch(e){s.textContent='送信時にネットワークエラーが発生しました: '+e}
+};
+</script>
+</body>
+</html>
