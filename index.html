@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>起こすな — プレイテスト</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;background:#101010;color:#eee;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{display:flex;justify-content:center;min-height:100%;padding:8px}#wrap{width:min(1100px,100%)}#gamebox{position:relative;border:1px solid #444;background:#181818;overflow:hidden;border-radius:8px}canvas{display:block;width:100%;height:auto;aspect-ratio:16/10;touch-action:none}.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#090909ef;z-index:20;padding:16px}.card{width:min(690px,100%);max-height:100%;overflow:auto;border:1px solid #555;border-radius:12px;background:#181818;padding:20px}.card h1,.card h2{margin:0 0 12px}.card p,.card li{line-height:1.55}.card label{display:block;margin:12px 0 5px;font-size:14px;color:#ddd}.card input,.card select{width:100%;min-height:44px;border:1px solid #555;border-radius:8px;background:#101010;color:#eee;padding:8px 10px;font-size:16px}button{border:0;border-radius:10px;padding:12px 17px;min-height:46px;font-size:16px;font-weight:700;cursor:pointer}.primary{background:#eee;color:#111}.secondary{background:#333;color:#fff;border:1px solid #666}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}#summary,#rotate{display:none}#summary{align-items:flex-start;overflow:auto}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}.metric{background:#111;border:1px solid #444;border-radius:8px;padding:9px}.metric b{display:block;font-size:21px}.small{font-size:13px;opacity:.72}#copyText{display:none;width:100%;min-height:150px;background:#0e0e0e;color:#ddd;border:1px solid #555;margin-top:10px;padding:8px}#touch{display:none;position:absolute;inset:0;pointer-events:none;z-index:10}#stick{position:absolute;left:12px;bottom:12px;width:142px;height:142px;border-radius:50%;background:#ffffff16;border:2px solid #ffffff3b;pointer-events:auto;touch-action:none}#knob{position:absolute;width:58px;height:58px;left:40px;top:40px;border-radius:50%;background:#ffffff77;border:2px solid #ffffffaa}#steal{position:absolute;right:18px;bottom:22px;width:108px;height:108px;border-radius:50%;background:#b84848dd;color:white;border:2px solid #ffffffaa;font-size:20px;pointer-events:auto;touch-action:manipulation;padding:0}#status{text-align:center;font-size:13px;opacity:.75;margin-top:6px}.hidden{display:none!important}@media(max-width:700px){body{padding:0}.card{padding:14px;border-radius:0}.metrics{grid-template-columns:1fr 1fr}#gamebox{border-radius:0}}@media(orientation:portrait) and (max-width:900px){#rotate.on{display:flex}}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="gamebox">
+    <canvas id="canvas" width="960" height="600"></canvas>
+    <div id="touch">
+      <div id="stick" aria-label="移動スティック"><div id="knob"></div></div>
+      <button id="steal" type="button">盗む</button>
+    </div>
+    <div id="start" class="overlay">
+      <div class="card">
+        <h1>起こすな — テスト版</h1>
+        <p><b>目的：</b>部屋にある品物を盗み、出口まで持ち帰ってお金を確保してください。</p>
+        <p>鬼が起きると追いかけてきます。捕まると、その部屋で盗んだ分は失います。</p>
+        <ul id="help"></ul>
+        <p class="small">攻略方法は自由です。全10部屋、10〜15分程度です。</p>
+        <button id="startBtn" class="primary" type="button">テストを開始</button>
+      </div>
+    </div>
+    <div id="summary" class="overlay">
+      <div class="card">
+        <h2>テスト終了</h2>
+        <div id="metrics" class="metrics"></div>
+        <label for="retryChange">もう1回やるなら、何を変える？</label>
+        <input id="retryChange" type="text" autocomplete="off" placeholder="自由に入力">
+        <label for="mainThought">一番考えていたことは何？</label>
+        <input id="mainThought" type="text" autocomplete="off" placeholder="自由に入力">
+        <label for="replay">もう1回やりたい？</label>
+        <select id="replay"><option value="未回答">選んでください</option><option>すぐやりたい</option><option>まぁやってもいい</option><option>もういい</option></select>
+        <p class="small">入力後、「結果をコピー」を押してテスト担当者へ送ってください。</p>
+        <div class="actions"><button id="copyBtn" class="primary" type="button">結果をコピー</button><button id="againBtn" class="secondary" type="button">もう一度</button></div>
+        <textarea id="copyText" readonly></textarea>
+      </div>
+    </div>
+    <div id="rotate" class="overlay"><div class="card"><h2>スマホを横向きにしてください</h2><p>横向きにすると続けられます。</p></div></div>
+  </div>
+  <div id="status"></div>
+</div>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id),canvas=$('canvas'),ctx=canvas.getContext('2d'),W=960,H=600,TOTAL=10,WAKE_GRACE=.8;
+const touchDevice=('ontouchstart'in window)||navigator.maxTouchPoints>0||matchMedia('(pointer:coarse)').matches;
+const device=touchDevice?'スマホ/タブレット':'PC';
+$('touch').style.display=touchDevice?'block':'none';
+$('help').innerHTML=touchDevice?'<li>左下スティック：移動</li><li>右下「盗む」：品物を盗む</li><li>緑の出口：戦利品を確保</li>':'<li>WASD / 矢印キー：移動</li><li>E / Space：品物を盗む</li><li>緑の出口：戦利品を確保</li>';
+$('status').textContent='入力：'+device+'｜Focused Prototype';
+const TYPES=[{name:'静か',shape:'circle',color:'#83c878',noise:8},{name:'ややうるさい',shape:'square',color:'#d9bb70',noise:12},{name:'うるさい',shape:'triangle',color:'#d66a70',noise:17}];
+const player={x:0,y:0,r:11,speed:190},monster={x:0,y:0,r:36,awake:false,wake:0,threshold:86,age:0};
+let state='intro',roomIndex=0,current=null,items=[],walls=[],exit=null,haul=0,bank=0,between=0,last=performance.now(),banner='',bannerSub='',roomPostWake=0,roomLog=null,logs=[],stats=resetStats(),keys=new Set(),joy={x:0,y:0},stickPointer=null;
+function resetStats(){return{picked:0,postWake:0,postWakeRooms:0,escapes:0,caught:0,awakeEscapes:0,clears:0,calmExits:0,warningPickups:0}}
+function rng(seed){return()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296)}
+function makeItem(x,y,type,value){return{x,y,type:TYPES[type],value,taken:false}}
+function makeRoom(index){
+  const r=rng(7319+index*97),variant=index>=5,family=index%5,mirror=x=>variant?W-x:x,arr=[],ws=[];
+  let start=[480,540],m=[480,260],ex={side:'bottom',x:410,y:574,w:140,h:26};
+  const add=(x,y,t,v=null)=>arr.push(makeItem(mirror(x),y,t,v??Math.round(35+r()*100)));
+  if(family===0){
+    [[290,440,0,58],[670,440,0,64],[255,335,1,92],[705,335,1,78],[425,295,2,128],[540,295,0,116],[350,190,1,70],[610,190,2,104],[230,135,0,49],[730,135,1,86]].forEach(p=>add(...p));
+    if(variant){start=[150,520];ex={side:'top',x:710,y:0,w:140,h:26}}
+  }else if(family===1){
+    start=[variant?790:170,510];m=[480,285];ex={side:variant?'right':'left',x:variant?934:0,y:405,w:26,h:145};
+    [[250,475,0,70],[340,410,1,55],[420,345,0,102],[545,260,1,126],[650,210,0,84],[770,175,2,132],[810,255,1,61],[700,355,2,96],[570,435,0,118],[430,495,1,76]].forEach(p=>add(...p));
+  }else if(family===2){
+    [[235,415,0,65],[285,350,1,104],[330,275,2,91],[250,205,0,112],[725,415,0,73],[675,350,1,87],[625,275,2,124],[710,205,0,56],[445,395,1,119],[520,395,1,68]].forEach((p,i)=>{if(variant&&i%2===1)p=[p[0],p[1],(p[2]+1)%3,p[3]];add(...p)});
+    if(variant)ex={side:'left',x:0,y:405,w:26,h:145};
+  }else if(family===3){
+    start=[variant?820:145,505];m=[variant?455:520,260];ex={side:variant?'left':'right',x:variant?0:934,y:405,w:26,h:145};
+    if(variant){ws.push({x:610,y:190,w:50,h:230},{x:300,y:330,w:50,h:210})}else{ws.push({x:300,y:190,w:50,h:230},{x:610,y:330,w:50,h:210})}
+    [[220,470,0,78],[390,470,1,103],[500,430,0,92],[740,470,1,69],[820,390,2,125],[730,250,0,113],[590,180,1,82],[455,160,2,101],[245,135,0,57],[780,130,1,121]].forEach(p=>add(...p));
+  }else{
+    [[250,455,0,62],[360,445,0,95],[600,445,0,72],[710,450,1,111],[230,350,1,88],[730,350,0,119],[310,270,1,73],[650,270,1,98],[440,225,2,138],[525,220,0,129]].forEach((p,i)=>{if(variant&&i===9)p=[p[0],p[1],2,p[3]];add(...p)});
+    if(variant){start=[160,500];ex={side:'top',x:85,y:0,w:140,h:26}}
+  }
+  return{id:String.fromCharCode(65+family)+(variant?'2':'1'),family,start,m,exit:ex,walls:ws,items:arr,threshold:82+Math.round(r()*10)};
+}
+function remaining(){return items.reduce((n,o)=>n+(!o.taken?1:0),0)}
+function cueLevel(){if(monster.awake)return 4;const q=monster.wake/monster.threshold;return q>=.85?3:q>=.68?2:q>=.45?1:0}
+function nearestItem(){let best=null,d=1e9;for(const o of items){if(o.taken)continue;const q=Math.hypot(player.x-o.x,player.y-o.y);if(q<d){d=q;best=o}}return d<=34?best:null}
+function loadRoom(){
+  current=makeRoom(roomIndex);items=current.items.map(o=>({...o,type:o.type}));walls=current.walls.map(w=>({...w}));exit={...current.exit};
+  [player.x,player.y]=current.start;[monster.x,monster.y]=current.m;monster.awake=false;monster.wake=0;monster.threshold=current.threshold;monster.age=0;
+  haul=0;roomPostWake=0;banner='';bannerSub='';state='play';
+  roomLog={room:roomIndex+1,id:current.id,input:device,pickups:[],wake:null,result:null,left:null,haul:null};
+}
+function take(){
+  if(state!=='play')return;const o=nearestItem();if(!o)return;const wasAwake=monster.awake,before=cueLevel();
+  o.taken=true;haul+=o.value;stats.picked++;
+  if(!wasAwake&&before>=1)stats.warningPickups++;
+  if(wasAwake){stats.postWake++;roomPostWake++;banner='もう1個';bannerSub='+$'+o.value}
+  roomLog.pickups.push({value:o.value,noise:o.type.name,cue:before,awake:wasAwake});
+  if(!wasAwake){
+    const d=Math.hypot(o.x-monster.x,o.y-monster.y),proximity=Math.max(.7,Math.min(1.4,1.55-d/400));
+    monster.wake+=o.type.noise*proximity;
+    if(monster.wake>=monster.threshold){monster.awake=true;monster.age=0;roomLog.wake={x:Math.round(player.x),y:Math.round(player.y),left:remaining()};banner='起きた！';bannerSub='逃げるか、まだ盗むか'}
+  }
+}
+function circleHitsRect(cx,cy,r,w){const nx=Math.max(w.x,Math.min(cx,w.x+w.w)),ny=Math.max(w.y,Math.min(cy,w.y+w.h));return Math.hypot(cx-nx,cy-ny)<r}
+function moveBody(o,dx,dy){
+  const nx=Math.max(o.r,Math.min(W-o.r,o.x+dx));if(!walls.some(w=>circleHitsRect(nx,o.y,o.r,w)))o.x=nx;
+  const ny=Math.max(o.r,Math.min(H-o.r,o.y+dy));if(!walls.some(w=>circleHitsRect(o.x,ny,o.r,w)))o.y=ny;
+}
+function atExit(){
+  if(exit.side==='bottom'||exit.side==='top')return player.x>exit.x&&player.x<exit.x+exit.w&&(exit.side==='bottom'?player.y>H-30:player.y<30);
+  return player.y>exit.y&&player.y<exit.y+exit.h&&(exit.side==='right'?player.x>W-30:player.x<30);
+}
+function chaseSpeed(){if(!monster.awake||monster.age<WAKE_GRACE)return 0;return Math.min(280,208+(monster.age-WAKE_GRACE)*32)}
+function finishRoom(result){
+  if(state!=='play')return;state='between';if(roomPostWake)stats.postWakeRooms++;const left=remaining();if(left===0)stats.clears++;
+  roomLog.result=result;roomLog.left=left;roomLog.haul=result==='escape'?haul:0;logs.push(roomLog);
+  if(result==='escape'){stats.escapes++;if(monster.awake)stats.awakeEscapes++;else stats.calmExits++;bank+=haul;banner='$'+haul+' を確保';bannerSub='合計 $'+bank}else{stats.caught++;banner='捕まった';bannerSub='この部屋の $'+haul+' を失った'}
+  between=1.25;
+}
+function nextRoom(){if(roomIndex>=TOTAL-1){showSummary();return}roomIndex++;loadRoom()}
+function update(dt){
+  if(state==='between'){between-=dt;if(between<=0)nextRoom();return}if(state!=='play')return;
+  let dx=joy.x,dy=joy.y;if(keys.has('a')||keys.has('arrowleft'))dx--;if(keys.has('d')||keys.has('arrowright'))dx++;if(keys.has('w')||keys.has('arrowup'))dy--;if(keys.has('s')||keys.has('arrowdown'))dy++;
+  const len=Math.hypot(dx,dy);if(len)moveBody(player,dx/len*player.speed*dt,dy/len*player.speed*dt);
+  if(monster.awake){monster.age+=dt;const s=chaseSpeed();if(s>0){const mx=player.x-monster.x,my=player.y-monster.y,ml=Math.hypot(mx,my)||1;moveBody(monster,mx/ml*s*dt,my/ml*s*dt)}if(Math.hypot(player.x-monster.x,player.y-monster.y)<player.r+monster.r-3)finishRoom('caught')}
+  if(state==='play'&&atExit())finishRoom('escape');
+}
+function drawItem(o){
+  ctx.fillStyle=o.type.color;ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.beginPath();
+  if(o.type.shape==='circle')ctx.arc(o.x,o.y,12,0,Math.PI*2);else if(o.type.shape==='square')ctx.rect(o.x-12,o.y-12,24,24);else{ctx.moveTo(o.x,o.y-14);ctx.lineTo(o.x-14,o.y+12);ctx.lineTo(o.x+14,o.y+12);ctx.closePath()}
+  ctx.fill();ctx.stroke();ctx.fillStyle='#fff';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText('$'+o.value,o.x,o.y+28);
+}
+function drawExit(){ctx.fillStyle='#2f905b';ctx.fillRect(exit.x,exit.y,exit.w,exit.h);ctx.fillStyle='#eafff2';ctx.font='12px sans-serif';ctx.textAlign='center';if(exit.side==='bottom')ctx.fillText('出口',exit.x+exit.w/2,H-7);else if(exit.side==='top')ctx.fillText('出口',exit.x+exit.w/2,17);else{ctx.save();ctx.translate(exit.side==='left'?13:947,exit.y+exit.h/2);ctx.rotate(-Math.PI/2);ctx.fillText('出口',0,4);ctx.restore()}}
+function drawMonster(){
+  const q=cueLevel();ctx.fillStyle=monster.awake?'#c94f4f':q>=3?'#895656':q>=2?'#6d6464':'#555';ctx.strokeStyle=q>=3?'#ff8b8b':'#888';ctx.lineWidth=q>=3?5:2;ctx.beginPath();ctx.arc(monster.x,monster.y,monster.r,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#111';if(monster.awake||q>=2){ctx.beginPath();ctx.arc(monster.x-13,monster.y-6,5,0,Math.PI*2);ctx.arc(monster.x+13,monster.y-6,5,0,Math.PI*2);ctx.fill()}else{ctx.strokeStyle='#222';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(monster.x-19,monster.y-5);ctx.lineTo(monster.x-7,monster.y-5);ctx.moveTo(monster.x+7,monster.y-5);ctx.lineTo(monster.x+19,monster.y-5);ctx.stroke()}
+  ctx.fillStyle='#ddd';ctx.textAlign='center';ctx.font='14px sans-serif';ctx.fillText(monster.awake?(monster.age<WAKE_GRACE?'起き上がる…':'追跡中'):q===0?'Z z z':q===1?'…ぴくっ':q===2?'片目が開く':'低いうなり声',monster.x,monster.y-48);
+}
+function drawHUD(){
+  ctx.fillStyle='#0009';ctx.fillRect(12,12,330,106);ctx.fillStyle='#fff';ctx.textAlign='left';ctx.font='16px sans-serif';ctx.fillText(`部屋 ${roomIndex+1}/${TOTAL}  ${current.id}`,24,36);ctx.font='15px sans-serif';ctx.fillText('現在：$'+haul,24,61);ctx.fillText('確保済み：$'+bank,24,84);ctx.fillText('残り：'+remaining()+'個',24,107);
+  ctx.textAlign='right';ctx.font='13px sans-serif';TYPES.forEach((t,i)=>{ctx.fillStyle=t.color;ctx.fillText((i===0?'● ':i===1?'■ ':'▲ ')+t.name,W-22,28+i*20)});
+  const o=nearestItem();if(o){ctx.textAlign='center';ctx.font='16px sans-serif';ctx.fillStyle=monster.awake?'#ffb0b0':'#fff';ctx.fillText((touchDevice?'盗むボタン':'E / SPACE')+' — $'+o.value+' を盗む',W/2,H-42)}
+}
+function draw(){
+  if(state==='intro'||state==='summary')return;ctx.clearRect(0,0,W,H);ctx.fillStyle='#1d1d1d';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#ffffff0d';ctx.lineWidth=1;ctx.beginPath();ctx.arc(monster.x,monster.y,150,0,Math.PI*2);ctx.stroke();
+  walls.forEach(w=>{ctx.fillStyle='#383838';ctx.strokeStyle='#666';ctx.fillRect(w.x,w.y,w.w,w.h);ctx.strokeRect(w.x,w.y,w.w,w.h)});drawExit();items.forEach(o=>{if(!o.taken)drawItem(o)});drawMonster();
+  ctx.fillStyle='#7fb3ff';ctx.beginPath();ctx.arc(player.x,player.y,player.r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#d4e6ff';ctx.lineWidth=2;ctx.stroke();drawHUD();
+  if(state==='between'||monster.awake){ctx.textAlign='center';ctx.fillStyle=monster.awake?'#ff9b9b':'#fff';ctx.font='bold 32px sans-serif';ctx.fillText(banner,W/2,145);ctx.font='18px sans-serif';ctx.fillText(bannerSub,W/2,174)}
+}
+function frame(now){const dt=Math.min(.033,(now-last)/1000);last=now;update(dt);draw();requestAnimationFrame(frame)}
+function resultText(){
+  const change=$('retryChange').value.trim()||'未回答',thought=$('mainThought').value.trim()||'未回答',replay=$('replay').value;
+  let s=`Do Not Wake It Focused Prototype\n端末: ${device}\n確保額: $${bank}\n盗んだ個数: ${stats.picked}\n脱出: ${stats.escapes}\n捕まった: ${stats.caught}\n起床後に盗んだ個数: ${stats.postWake}\n起床後も盗んだ部屋: ${stats.postWakeRooms}/${TOTAL}\n全回収: ${stats.clears}\n平静時脱出: ${stats.calmExits}\n警告後取得: ${stats.warningPickups}\n\nもう1回やるなら何を変える: ${change}\n一番考えていたこと: ${thought}\nもう1回やりたい: ${replay}\n\nROOM LOG\n`;
+  logs.forEach(l=>{s+=`${l.room} ${l.id} | ${l.result} | 残り${l.left} | 確保$${l.haul} | 起床${l.wake?'あり':'なし'} | 取得順:`+l.pickups.map(p=>`${p.value}/${p.noise}/cue${p.cue}${p.awake?'*':''}`).join(',')+'\n'});return s;
+}
+function showSummary(){
+  state='summary';$('summary').style.display='flex';$('metrics').innerHTML=`<div class="metric">確保額<b>$${bank}</b></div><div class="metric">盗んだ個数<b>${stats.picked}</b></div><div class="metric">脱出<b>${stats.escapes}</b></div><div class="metric">捕まった<b>${stats.caught}</b></div><div class="metric">起床後に盗んだ個数<b>${stats.postWake}</b></div><div class="metric">全回収できた部屋<b>${stats.clears}</b></div>`;
+}
+function restart(){roomIndex=0;bank=0;logs=[];stats=resetStats();$('summary').style.display='none';$('retryChange').value='';$('mainThought').value='';$('replay').value='未回答';$('copyText').style.display='none';loadRoom()}
+function orientationCheck(){if(!touchDevice)return;const portrait=innerHeight>innerWidth;$('rotate').classList.toggle('on',portrait)}
+addEventListener('resize',orientationCheck);addEventListener('orientationchange',orientationCheck);orientationCheck();
+addEventListener('keydown',e=>{keys.add(e.key.toLowerCase());if((e.key===' '||e.key.toLowerCase()==='e')&&!e.repeat){e.preventDefault();take()}});addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
+$('startBtn').addEventListener('click',()=>{$('start').style.display='none';roomIndex=0;bank=0;logs=[];stats=resetStats();loadRoom()});$('steal').addEventListener('pointerdown',e=>{e.preventDefault();take()});
+const stick=$('stick'),knob=$('knob');function setJoy(e){const r=stick.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,lim=r.width*.34,d=Math.hypot(dx,dy)||1,scale=Math.min(1,lim/d);joy.x=dx/d*scale;joy.y=dy/d*scale;knob.style.transform=`translate(${joy.x*lim}px,${joy.y*lim}px)`}function clearJoy(){joy.x=joy.y=0;knob.style.transform='translate(0,0)'}
+stick.addEventListener('pointerdown',e=>{e.preventDefault();stickPointer=e.pointerId;stick.setPointerCapture(e.pointerId);setJoy(e)});stick.addEventListener('pointermove',e=>{if(e.pointerId===stickPointer)setJoy(e)});stick.addEventListener('pointerup',e=>{if(e.pointerId===stickPointer){stickPointer=null;clearJoy()}});stick.addEventListener('pointercancel',()=>{stickPointer=null;clearJoy()});
+$('copyBtn').addEventListener('click',async()=>{const text=resultText();$('copyText').value=text;try{await navigator.clipboard.writeText(text);$('copyBtn').textContent='コピーしました';setTimeout(()=>$('copyBtn').textContent='結果をコピー',1800)}catch(_){$('copyText').style.display='block';$('copyText').select();$('copyBtn').textContent='下の欄を長押ししてコピー'}});$('againBtn').addEventListener('click',restart);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
