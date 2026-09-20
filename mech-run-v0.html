@@ -128,7 +128,10 @@ function resetRun(){
  ];
  repairNode={x:210,y:-1000,taken:false};
  spawnEnemies();
- setObjective('外縁を進み、廃棄場のパーツ反応を調査');
+ if(!securedParts.includes('legs')) setObjective('外縁を進み、廃棄場の脚部反応を調査');
+ else if(!securedParts.includes('cannon')) setObjective('既知の廃棄場を越え、炉心区画の武器パーツ反応を調査');
+ else if(!securedParts.includes('barrier')) setObjective('最深部の特殊モジュール反応を調査');
+ else setObjective('回収済み構成で、どこまで欲張るか試す');
  syncHud();logEvent('deploy',{run:runNo,equipped:equipped});
 }
 
@@ -155,10 +158,11 @@ function collide(nx,ny){
 }
 
 function fire(t){
- if(t-lastShot<.16)return;
+ const cd=equipped==='cannon'?.36:.16;
+ if(t-lastShot<cd)return;
  lastShot=t;
- const dx=Math.cos(ang),dy=Math.sin(ang),sp=760;
- shots.push({x:px+dx*52,y:py+dy*52,vx:dx*sp,vy:dy*sp,life:1.2,d:equipped==='cannon'?1.5:1});
+ const dx=Math.cos(ang),dy=Math.sin(ang),sp=equipped==='cannon'?650:760;
+ shots.push({x:px+dx*52,y:py+dy*52,vx:dx*sp,vy:dy*sp,life:1.2,d:equipped==='cannon'?2.6:1});
  flash=1;
  if(navigator.vibrate)navigator.vibrate(4);
 }
@@ -290,7 +294,7 @@ function update(dt,t){
   e.cd-=dt;const dx=px-e.x,dy=py-e.y,l=Math.hypot(dx,dy)||1;
   if(e.type==='p'){
    if(l<360&&l>34){e.x+=dx/l*62*dt;e.y+=dy/l*62*dt}
-   if(l<36&&e.cd<=0){hp-=12;e.cd=1.0}
+   if(l<36&&e.cd<=0){hp-=equipped==='barrier'?8:12;e.cd=1.0}
   }else{
    if(l<250){e.x-=dx/l*28*dt;e.y-=dy/l*28*dt}
    else if(l>390){e.x+=dx/l*20*dt;e.y+=dy/l*20*dt}
@@ -302,7 +306,7 @@ function update(dt,t){
  for(let i=artilleryMarks.length-1;i>=0;i--){
   const m=artilleryMarks[i];m.t+=dt;
   if(m.t>=1.25){
-   if(dist(px,py,m.x,m.y)<38){hp-=23;if(navigator.vibrate)navigator.vibrate(12)}
+   if(dist(px,py,m.x,m.y)<38){hp-=equipped==='barrier'?15:23;if(navigator.vibrate)navigator.vibrate(12)}
    artilleryMarks.splice(i,1);
   }
  }
