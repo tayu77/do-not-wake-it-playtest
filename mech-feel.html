@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>MECH FEEL TEST</title>
+<style>
+*{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0f14;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;background:#10161d}
+#top{position:fixed;z-index:5;top:max(8px,env(safe-area-inset-top));left:8px;right:8px;display:flex;gap:5px;flex-wrap:wrap}
+.b{min-height:38px;padding:7px 8px;border:1px solid #697582;border-radius:9px;background:#1b242e;color:#fff;font-size:11px}
+.b.on{background:#eef3f7;color:#101820;font-weight:800}
+#joy{position:fixed;z-index:5;left:18px;bottom:max(20px,calc(env(safe-area-inset-bottom) + 12px));width:126px;height:126px;border-radius:50%;border:2px solid #65717d;background:#18212a99;touch-action:none}
+#knob{position:absolute;width:44px;height:44px;left:39px;top:39px;border-radius:50%;background:#dbe2e8aa}
+#fire{position:fixed;z-index:5;right:20px;bottom:max(26px,calc(env(safe-area-inset-bottom) + 18px));width:98px;height:98px;border-radius:50%;border:2px solid #7b8793;background:#d7e0e828;color:#fff;font-weight:800;font-size:15px;touch-action:none}
+#label{position:fixed;z-index:4;left:12px;top:88px;padding:7px 9px;border-radius:8px;background:#0b0f14cc;border:1px solid #ffffff22;font-size:11px}
+#eval{position:fixed;z-index:5;right:8px;bottom:136px;width:188px;padding:8px;border-radius:10px;background:#0b0f14dd;border:1px solid #ffffff22;font-size:11px}
+.r{display:grid;grid-template-columns:1fr repeat(3,28px);gap:4px;align-items:center;margin-top:5px}
+.e{height:27px;border:1px solid #65717d;border-radius:7px;background:#1b242e;color:#fff}
+.e.on{background:#eef3f7;color:#101820;font-weight:800}
+@media(min-width:700px){#eval{top:88px;bottom:auto;width:240px}#label{font-size:12px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="top">
+<button class="b on" data-l="L" data-w="R">軽脚＋カービン</button>
+<button class="b" data-l="L" data-w="C">軽脚＋キャノン</button>
+<button class="b" data-l="H" data-w="R">重脚＋カービン</button>
+<button class="b" data-l="H" data-w="C">重脚＋キャノン</button>
+</div>
+<div id="label">左スティックで移動 / FIREで射撃</div>
+<div id="eval">
+<b>3点だけ評価</b>
+<div class="r"><span>自分の機体感</span><button class="e">○</button><button class="e">△</button><button class="e">×</button></div>
+<div class="r"><span>操作差が楽しい</span><button class="e">○</button><button class="e">△</button><button class="e">×</button></div>
+<div class="r"><span>もう少し触りたい</span><button class="e">○</button><button class="e">△</button><button class="e">×</button></div>
+</div>
+<div id="joy"><div id="knob"></div></div>
+<button id="fire">FIRE</button>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');
+let W=0,H=0,dpr=1;
+function rs(){W=innerWidth;H=innerHeight;dpr=Math.min(devicePixelRatio||1,2);c.width=W*dpr;c.height=H*dpr;c.style.width=W+'px';c.style.height=H+'px';x.setTransform(dpr,0,0,dpr,0,0)}rs();addEventListener('resize',rs);
+let legs='L',gun='R',px=0,py=0,vx=0,vy=0,a=-Math.PI/2,joyX=0,joyY=0,shooting=false,last=0,flash=0;
+const shots=[],enemies=[];
+for(let i=0;i<8;i++){let q=i/8*Math.PI*2;enemies.push({x:Math.cos(q)*250,y:Math.sin(q)*210,hp:4})}
+const blocks=[[-180,-120,80,70],[180,-140,100,70],[-150,120,80,95],[150,130,95,80],[0,-300,100,65],[300,20,70,120]];
+function roundRect(cx,cy,w,h,r){x.beginPath();x.roundRect(cx-w/2,cy-h/2,w,h,r)}
+function scr(wx,wy){return [W/2+wx-px,H/2+wy-py]}
+function drawMech(){
+ x.save();x.translate(W/2,H/2);x.rotate(a+Math.PI/2);
+ x.fillStyle='#0006';x.beginPath();x.ellipse(0,28,legs==='H'?36:28,13,0,0,Math.PI*2);x.fill();
+ x.fillStyle='#2d3741';
+ if(legs==='H'){roundRect(-20,22,20,48,6);x.fill();roundRect(20,22,20,48,6);x.fill();x.fillStyle='#97a4af';roundRect(-20,45,31,13,4);x.fill();roundRect(20,45,31,13,4);x.fill()}
+ else{roundRect(-17,23,13,45,5);x.fill();roundRect(17,23,13,45,5);x.fill();x.fillStyle='#97a4af';roundRect(-17,44,23,10,4);x.fill();roundRect(17,44,23,10,4);x.fill()}
+ x.fillStyle='#9ba7b2';roundRect(0,-4,66,47,8);x.fill();
+ x.fillStyle='#d0873c';roundRect(0,-29,25,13,4);x.fill();
+ x.fillStyle='#d0873c';
+ if(gun==='C'){roundRect(55,-4,65,20,5);x.fill();x.fillStyle='#303943';x.fillRect(76,-9,37,10)}
+ else{roundRect(51,-4,55,14,4);x.fill();x.fillStyle='#303943';x.fillRect(72,-8,29,8)}
+ if(flash>0){x.fillStyle='rgba(255,190,90,'+flash+')';x.beginPath();x.arc(gun==='C'?116:104,-4,gun==='C'?13:8,0,Math.PI*2);x.fill()}
+ x.restore()
+}
+function fire(now){
+ let cd=gun==='C'?.72:.14;if(now-last<cd)return;last=now;
+ let dx=Math.cos(a),dy=Math.sin(a),sp=gun==='C'?570:760;
+ shots.push({x:px+dx*65,y:py+dy*65,vx:dx*sp,vy:dy*sp,life:1.4,d:gun==='C'?4:1});
+ let kick=gun==='C'?60:7;vx-=dx*kick;vy-=dy*kick;flash=1;
+ if(navigator.vibrate)navigator.vibrate(gun==='C'?18:5)
+}
+function step(dt,t){
+ let mag=Math.min(1,Math.hypot(joyX,joyY)),light=legs==='L',acc=light?500:290,max=(light?265:175)*(gun==='C'?.92:1),turn=light?7:3.5,drag=light?5.8:2.5;
+ if(mag>.05){let target=Math.atan2(joyY,joyX),d=((target-a+Math.PI*3)%(Math.PI*2))-Math.PI;a+=d*Math.min(1,turn*dt);let dx=Math.cos(a),dy=Math.sin(a);vx+=dx*acc*mag*dt;vy+=dy*acc*mag*dt;let s=Math.hypot(vx,vy);if(s>max){vx=vx/s*max;vy=vy/s*max}}
+ else{let f=Math.max(0,1-drag*dt);vx*=f;vy*=f}
+ px+=vx*dt;py+=vy*dt;if(shooting)fire(t);
+ for(let i=shots.length-1;i>=0;i--){let s=shots[i];s.x+=s.vx*dt;s.y+=s.vy*dt;s.life-=dt;for(let e of enemies){let dx=e.x-s.x,dy=e.y-s.y;if(dx*dx+dy*dy<650){e.hp-=s.d;s.life=0;if(e.hp<=0){let q=Math.random()*Math.PI*2,r=220+Math.random()*120;e.x=px+Math.cos(q)*r;e.y=py+Math.sin(q)*r;e.hp=4}break}}if(s.life<=0)shots.splice(i,1)}
+ flash=Math.max(0,flash-dt*5)
+}
+function draw(){
+ x.fillStyle='#10161d';x.fillRect(0,0,W,H);
+ x.strokeStyle='#26323d';x.lineWidth=1;let st=42,ox=((W/2-px)%st+st)%st,oy=((H/2-py)%st+st)%st;
+ for(let i=ox;i<W;i+=st){x.beginPath();x.moveTo(i,0);x.lineTo(i,H);x.stroke()}for(let j=oy;j<H;j+=st){x.beginPath();x.moveTo(0,j);x.lineTo(W,j);x.stroke()}
+ x.fillStyle='#313c47';for(let b of blocks){let p=scr(b[0],b[1]);roundRect(p[0],p[1],b[2],b[3],7);x.fill()}
+ for(let e of enemies){let p=scr(e.x,e.y);x.fillStyle='#833e3e';roundRect(p[0],p[1],38,28,5);x.fill();x.fillStyle='#ffb26b';x.fillRect(p[0]-10,p[1]-3,20,6)}
+ x.fillStyle='#ffc26b';for(let s of shots){let p=scr(s.x,s.y);x.beginPath();x.arc(p[0],p[1],gun==='C'?5:3,0,Math.PI*2);x.fill()}
+ drawMech();
+ x.fillStyle='#ffffffaa';x.font='11px -apple-system,sans-serif';x.fillText((legs==='L'?'LIGHT':'HEAVY')+' / '+(gun==='R'?'CARBINE':'CANNON'),12,H-10)
+}
+let prev=performance.now();function loop(ts){let dt=Math.min(.033,(ts-prev)/1000);prev=ts;step(dt,ts/1000);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
+
+const joy=document.getElementById('joy'),knob=document.getElementById('knob');let jid=null;
+function jset(t){let r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=t.clientX-cx,dy=t.clientY-cy,m=40,l=Math.hypot(dx,dy)||1;if(l>m){dx*=m/l;dy*=m/l}joyX=dx/m;joyY=dy/m;knob.style.transform='translate('+dx+'px,'+dy+'px)'}
+joy.addEventListener('touchstart',e=>{e.preventDefault();let t=e.changedTouches[0];jid=t.identifier;jset(t)},{passive:false});
+joy.addEventListener('touchmove',e=>{e.preventDefault();for(let t of e.changedTouches)if(t.identifier===jid)jset(t)},{passive:false});
+function jend(e){e.preventDefault();for(let t of e.changedTouches)if(t.identifier===jid){jid=null;joyX=joyY=0;knob.style.transform='translate(0,0)'}}joy.addEventListener('touchend',jend,{passive:false});joy.addEventListener('touchcancel',jend,{passive:false});
+const fb=document.getElementById('fire');fb.addEventListener('touchstart',e=>{e.preventDefault();shooting=true},{passive:false});fb.addEventListener('touchend',e=>{e.preventDefault();shooting=false},{passive:false});fb.addEventListener('touchcancel',e=>{e.preventDefault();shooting=false},{passive:false});
+document.querySelectorAll('.b').forEach(b=>{b.addEventListener('click',()=>{document.querySelectorAll('.b').forEach(z=>z.classList.remove('on'));b.classList.add('on');legs=b.dataset.l;gun=b.dataset.w;vx=vy=0})});
+document.querySelectorAll('.r').forEach(r=>r.querySelectorAll('.e').forEach(b=>b.addEventListener('click',()=>{r.querySelectorAll('.e').forEach(z=>z.classList.remove('on'));b.classList.add('on')})));
+document.addEventListener('touchmove',e=>{if(e.target===c)e.preventDefault()},{passive:false});
+</script>
+</body></html>
