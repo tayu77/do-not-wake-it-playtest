@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>MECH RUN TEST v0.3</title>
+<style>
+*{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1016;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;background:#101720}
+#hud{position:fixed;z-index:8;top:max(8px,env(safe-area-inset-top));left:8px;right:8px;display:flex;justify-content:space-between;gap:7px;pointer-events:none}
+.hcard{background:#081019df;border:1px solid #ffffff24;border-radius:9px;padding:7px 9px;font-size:10px;line-height:1.4;min-width:92px}
+#objective{position:fixed;z-index:8;top:58px;left:50%;transform:translateX(-50%);max-width:84vw;background:#0a111be8;border:1px solid #ffffff24;border-radius:10px;padding:8px 11px;font-size:11px;text-align:center;pointer-events:none}
+#joy{position:fixed;z-index:10;left:18px;bottom:max(20px,calc(env(safe-area-inset-bottom) + 12px));width:126px;height:126px;border-radius:50%;border:2px solid #66727e;background:#17212bbb;touch-action:none}
+#knob{position:absolute;width:44px;height:44px;left:39px;top:39px;border-radius:50%;background:#dae2e9aa}
+.ctrl{position:fixed;z-index:10;border-radius:50%;border:2px solid #7b8793;background:#d8e0e828;color:#fff;font-weight:800;touch-action:none}
+#fire{right:20px;bottom:max(26px,calc(env(safe-area-inset-bottom) + 18px));width:96px;height:96px;font-size:15px}
+#repair{right:128px;bottom:max(42px,calc(env(safe-area-inset-bottom) + 34px));width:68px;height:68px;font-size:10px}
+.overlay{position:fixed;z-index:30;inset:0;background:#071019ef;display:none;align-items:center;justify-content:center;padding:18px}
+.panel{width:min(540px,95vw);max-height:90vh;overflow:auto;background:#111a24;border:1px solid #ffffff2c;border-radius:16px;padding:18px}
+h1,h2,p{margin:0 0 10px}h1{font-size:21px}h2{font-size:17px}
+.small{font-size:12px;color:#c4ccd4;line-height:1.55}
+button.ui{width:100%;min-height:46px;border:1px solid #6f7b86;border-radius:10px;background:#202b35;color:#fff;font-size:15px;font-weight:700;margin-top:8px}
+button.ui.primary{background:#edf2f6;color:#101820;border-color:#edf2f6}
+.part{border:1px solid #d99a50;background:#d99a5014;border-radius:12px;padding:12px;margin:12px 0}
+.stat{display:grid;grid-template-columns:1fr auto;gap:8px;margin:7px 0;font-size:13px}
+#eval .row{display:grid;grid-template-columns:1fr repeat(3,44px);gap:6px;align-items:center;margin:10px 0}
+#eval .choice{height:40px;border:1px solid #6d7882;border-radius:8px;background:#202a34;color:white}
+#eval .choice.on{background:#eef3f7;color:#111;font-weight:800}
+#log{margin-top:12px;padding:10px;border-radius:10px;background:#09111a;font-size:11px;line-height:1.45;color:#c6d0d8}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div class="hcard" id="leftHud">HP 100<br>修理 1</div>
+  <div class="hcard" id="rightHud">未確保 ★0<br>パーツ 0</div>
+</div>
+<div id="objective">外縁を進み、廃棄場のパーツ反応を調査</div>
+<div id="joy"><div id="knob"></div></div>
+<button id="fire" class="ctrl">FIRE</button>
+<button id="repair" class="ctrl">REPAIR</button>
+
+<div id="start" class="overlay" style="display:flex">
+  <div class="panel">
+    <h1>MECH RUN TEST v0.3</h1>
+    <p><b>全体テンポを落とした重量感調整版です。見るのは「欲張るか、帰るか」です。</b></p>
+    <p class="small">左スティックで移動、FIREで射撃、REPAIRで修理。黄色い硬貨はSALVAGE（汎用価値）で、持つほど未確保価値が増えます。重要パーツを拾った後は、入口の緑色EXTRACTへ戻れば確保できます。さらに奥には次の報酬反応があります。</p>
+    <button class="ui primary" id="startBtn">出撃</button>
+  </div>
+</div>
+
+<div id="garage" class="overlay">
+  <div class="panel">
+    <h2>EXTRACTION SUCCESS</h2>
+    <div id="haul"></div>
+    <p class="small">確保した機能パーツを1つ装備して、次の出撃で違いを感じられます。</p>
+    <div class="part" id="partBox"><b>回収パーツ</b><p class="small" id="partDesc"></p></div>
+    <button class="ui primary" id="equipBtn">回収パーツを装備</button>
+    <button class="ui" id="redeployBtn">再出撃する</button>
+    <button class="ui" id="finishBtn">今回はここで評価する</button>
+  </div>
+</div>
+
+<div id="fail" class="overlay">
+  <div class="panel">
+    <h2>機体破壊</h2>
+    <p>このランで回収した未確保Lootを失いました。</p>
+    <p class="small">今回のテストでは出撃前の装備は失いません。ロスト強度は別途Alphaで検証します。</p>
+    <button class="ui primary" id="retryBtn">再出撃</button>
+    <button class="ui" id="failEvalBtn">今回はここで評価する</button>
+  </div>
+</div>
+
+<div id="eval" class="overlay">
+  <div class="panel">
+    <h2>3点だけ評価</h2>
+    <div class="row"><span>価値ある物を持った後、「進むか帰るか」で迷った？</span><button class="choice">○</button><button class="choice">△</button><button class="choice">×</button></div>
+    <div class="row"><span>帰路で「失いたくない」という緊張があった？</span><button class="choice">○</button><button class="choice">△</button><button class="choice">×</button></div>
+    <div class="row"><span>帰還後、もう1ラン行きたいと思った？</span><button class="choice">○</button><button class="choice">△</button><button class="choice">×</button></div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+const c=document.getElementById('c'),g=c.getContext('2d');
+let W=0,H=0,DPR=1;
+function resize(){W=innerWidth;H=innerHeight;DPR=Math.min(devicePixelRatio||1,2);c.width=W*DPR;c.height=H*DPR;c.style.width=W+'px';c.style.height=H+'px';g.setTransform(DPR,0,0,DPR,0,0)}
+resize();addEventListener('resize',resize);
+
+const leftHud=document.getElementById('leftHud'),rightHud=document.getElementById('rightHud'),objective=document.getElementById('objective');
+const joy=document.getElementById('joy'),knob=document.getElementById('knob');
+const fireBtn=document.getElementById('fire'),repairBtn=document.getElementById('repair');
+
+let mode='idle',px=0,py=300,vx=0,vy=0,ang=-Math.PI/2,hp=100,repair=1,joyX=0,joyY=0,shooting=false,lastShot=0,flash=0;
+let salvage=0,parts=[],securedParts=[],equipped=null,extractProgress=0,artilleryMarks=[],impactFlashes=[],shots=[],enemies=[],salvageNodes=[],repairNode=null;
+let decision1=null,decision2=null,events=[],runStart=0,runNo=0,returnSpawned=false,extractAmbush=false;
+
+const extract={x:0,y:330,r:68};
+const cache1={x:-40,y:-650,name:'高出力レッグ',kind:'legs',stars:3};
+const cache2={x:150,y:-1320,name:'重装キャノン',kind:'cannon',stars:4};
+const cache3={x:-100,y:-1880,name:'バリアモジュール',kind:'barrier',stars:5};
+
+const walls=[
+ {x:-250,y:40,w:170,h:90},{x:220,y:-40,w:150,h:90},
+ {x:-210,y:-340,w:150,h:100},{x:120,y:-360,w:170,h:90},
+ {x:-260,y:-850,w:190,h:90},{x:210,y:-870,w:160,h:110},
+ {x:-120,y:-1080,w:170,h:85},{x:250,y:-1120,w:120,h:100},
+ {x:-240,y:-1510,w:160,h:100},{x:170,y:-1540,w:180,h:95}
+];
+
+function rr(cx,cy,w,h,r){g.beginPath();g.roundRect(cx-w/2,cy-h/2,w,h,r)}
+function screen(wx,wy){return[W/2+wx-px,H/2+wy-py]}
+function dist(ax,ay,bx,by){return Math.hypot(ax-bx,ay-by)}
+function now(){return performance.now()/1000}
+function logEvent(type,data){events.push({t:Math.round((now()-runStart)*10)/10,type:type,data:data||{}})}
+function setObjective(t){objective.textContent=t}
+function unsecuredStars(){let s=salvage;for(const p of parts)s+=p.stars;return s}
+function syncHud(){
+ leftHud.innerHTML='HP '+Math.max(0,Math.round(hp))+'<br>修理 '+repair;
+ rightHud.innerHTML='未確保 ★'+unsecuredStars()+'<br>パーツ '+parts.length;
+}
+
+function resetRun(){
+ runNo++;mode='run';px=0;py=300;vx=vy=0;ang=-Math.PI/2;hp=100;repair=1;salvage=0;parts=[];extractProgress=0;shots=[];artilleryMarks=[];impactFlashes=[];events=[];runStart=now();decision1=null;decision2=null;returnSpawned=false;extractAmbush=false;
+ salvageNodes=[
+  {x:-160,y:-180,taken:false},{x:160,y:-470,taken:false},{x:-210,y:-980,taken:false},{x:250,y:-1450,taken:false},{x:40,y:-1720,taken:false}
+ ];
+ repairNode={x:210,y:-1510,taken:false};
+ spawnEnemies();
+ if(!securedParts.includes('legs')) setObjective('外縁を進み、廃棄場の脚部反応を調査');
+ else if(!securedParts.includes('cannon')) setObjective('既知の廃棄場を越え、炉心区画の武器パーツ反応を調査');
+ else if(!securedParts.includes('barrier')) setObjective('最深部の特殊モジュール反応を調査');
+ else setObjective('回収済み構成で、どこまで欲張るか試す');
+ syncHud();logEvent('deploy',{run:runNo,equipped:equipped});
+}
+
+function spawnEnemies(){
+ enemies=[
+  {type:'p',x:-120,y:-210,hp:4,cd:0,tier:1,wind:0},
+  {type:'a',x:190,y:-300,hp:3,cd:1.0,tier:1,wind:0},
+  {type:'p',x:120,y:-520,hp:4,cd:.3,tier:1,wind:0},
+
+  {type:'p',x:-190,y:-790,hp:5,cd:.2,tier:2,wind:0},
+  {type:'a',x:210,y:-900,hp:4,cd:.7,tier:2,wind:0},
+  {type:'p',x:90,y:-1080,hp:5,cd:.1,tier:2,wind:0},
+  {type:'a',x:-170,y:-1190,hp:4,cd:.4,tier:2,wind:0},
+
+  {type:'p',x:150,y:-1370,hp:6,cd:.1,tier:3,wind:0},
+  {type:'a',x:-190,y:-1450,hp:5,cd:.3,tier:3,wind:0},
+  {type:'p',x:200,y:-1600,hp:6,cd:.1,tier:3,wind:0},
+  {type:'p',x:-110,y:-1730,hp:6,cd:.1,tier:3,wind:0},
+  {type:'a',x:170,y:-1840,hp:5,cd:.2,tier:3,wind:0}
+ ];
+}
+
+function collide(nx,ny){
+ const r=19;
+ for(const w of walls){
+  if(nx+r>w.x-w.w/2 && nx-r<w.x+w.w/2 && ny+r>w.y-w.h/2 && ny-r<w.y+w.h/2)return true;
+ }
+ return false;
+}
+
+function fire(t){
+ const cd=equipped==='cannon'?.52:.24;
+ if(t-lastShot<cd)return;
+ lastShot=t;
+ const hx=Math.cos(ang),hy=Math.sin(ang),pvx=-hy,pvy=hx;
+ const side=8,len=equipped==='cannon'?50:42,sp=equipped==='cannon'?500:560;
+ const mx=px+pvx*side+hx*len,my=py+pvy*side+hy*len;
+ shots.push({x:mx,y:my,vx:hx*sp,vy:hy*sp,life:1.2,d:equipped==='cannon'?2.6:1});
+ flash=1;
+ if(navigator.vibrate)navigator.vibrate(4);
+}
+function useRepair(){
+ if(mode!=='run'||repair<=0||hp>=98)return;
+ repair--;hp=Math.min(100,hp+42);logEvent('repair',{hp:Math.round(hp)});syncHud();
+ if(navigator.vibrate)navigator.vibrate([8,25,8]);
+}
+
+function gunGeom(){
+ const hx=Math.cos(ang),hy=Math.sin(ang),pvx=-hy,pvy=hx;
+ const side=8,len=equipped==='cannon'?50:42;
+ const baseX=W/2+pvx*side,baseY=H/2+pvy*side;
+ return {hx,hy,pvx,pvy,side,len,baseX,baseY,muzzleX:baseX+hx*len,muzzleY:baseY+hy*len};
+}
+function drawMech(){
+ const q=gunGeom(),cx=W/2,cy=H/2;
+ g.fillStyle='#0007';g.beginPath();g.ellipse(cx+5,cy+12,30,16,ang,0,Math.PI*2);g.fill();
+
+ const lx=q.pvx*17,ly=q.pvy*17;
+ g.strokeStyle=equipped==='legs'?'#d8914d':'#65727d';g.lineWidth=12;g.lineCap='round';
+ g.beginPath();g.moveTo(cx+lx-q.hx*8,cy+ly-q.hy*8);g.lineTo(cx+lx+q.hx*25,cy+ly+q.hy*25);g.stroke();
+ g.beginPath();g.moveTo(cx-lx-q.hx*8,cy-ly-q.hy*8);g.lineTo(cx-lx+q.hx*25,cy-ly+q.hy*25);g.stroke();
+
+ g.fillStyle='#a6b1ba';g.beginPath();g.arc(cx,cy,27,0,Math.PI*2);g.fill();
+ g.fillStyle=equipped==='barrier'?'#63b6c8':'#d0873c';g.beginPath();g.arc(cx+q.hx*20,cy+q.hy*20,7,0,Math.PI*2);g.fill();
+
+ g.strokeStyle='#d0873c';g.lineWidth=equipped==='cannon'?16:11;g.lineCap='round';
+ g.beginPath();g.moveTo(q.baseX,q.baseY);g.lineTo(q.muzzleX,q.muzzleY);g.stroke();
+ g.fillStyle='#303943';g.beginPath();g.arc(q.muzzleX,q.muzzleY,equipped==='cannon'?7:5,0,Math.PI*2);g.fill();
+
+ if(flash>0){
+  g.fillStyle='rgba(255,205,110,'+flash+')';
+  g.beginPath();g.arc(q.muzzleX,q.muzzleY,equipped==='cannon'?14:10,0,Math.PI*2);g.fill();
+ }
+}
+function zoneLabel(x,y,text,color){
+ const p=screen(x,y);g.fillStyle=color;g.font='bold 11px sans-serif';g.textAlign='center';g.fillText(text,p[0],p[1]);g.textAlign='left';
+}
+
+function draw(){
+ g.fillStyle='#101720';g.fillRect(0,0,W,H);
+ const step=48,ox=((W/2-px)%step+step)%step,oy=((H/2-py)%step+step)%step;
+ g.strokeStyle='#22303b';g.lineWidth=1;
+ for(let i=ox;i<W;i+=step){g.beginPath();g.moveTo(i,0);g.lineTo(i,H);g.stroke()}
+ for(let j=oy;j<H;j+=step){g.beginPath();g.moveTo(0,j);g.lineTo(W,j);g.stroke()}
+
+ // depth tint guides
+ const guides=[[0,'OUTER YARD'],[-650,'WRECK DEPOT'],[-1320,'REACTOR PIT'],[-1880,'DEEP CORE']];
+ for(const z of guides){const p=screen(0,z[0]);g.strokeStyle='#ffffff12';g.beginPath();g.moveTo(0,p[1]);g.lineTo(W,p[1]);g.stroke();g.fillStyle='#ffffff55';g.font='10px sans-serif';g.fillText(z[1],10,p[1]-6)}
+
+ g.fillStyle='#2e3944';
+ for(const w of walls){const p=screen(w.x,w.y);rr(p[0],p[1],w.w,w.h,8);g.fill()}
+
+ // extraction
+ const ep=screen(extract.x,extract.y);
+ g.strokeStyle=parts.length?'#62e49a':'#45695a';g.lineWidth=4;g.beginPath();g.arc(ep[0],ep[1],extract.r,0,Math.PI*2);g.stroke();
+ zoneLabel(extract.x,extract.y-extract.r-12,'EXTRACT',parts.length?'#8dffb5':'#6f8d7b');
+
+ // loot nodes
+ for(const s of salvageNodes)if(!s.taken){
+  const p=screen(s.x,s.y);
+  // stacked coins: instantly readable as generic value rather than equipment
+  g.fillStyle='#9d6a20';g.beginPath();g.arc(p[0]+5,p[1]+5,11,0,Math.PI*2);g.fill();
+  g.fillStyle='#d8a13b';g.beginPath();g.arc(p[0],p[1],11,0,Math.PI*2);g.fill();
+  g.strokeStyle='#f3d27a';g.lineWidth=2;g.beginPath();g.arc(p[0],p[1],8,0,Math.PI*2);g.stroke();
+  g.fillStyle='#fff0b0';g.font='bold 11px sans-serif';g.textAlign='center';g.fillText('S',p[0],p[1]+4);g.textAlign='left';
+  zoneLabel(s.x,s.y-24,'SALVAGE','#f4cf8b')
+ }
+ if(repairNode&&!repairNode.taken){const p=screen(repairNode.x,repairNode.y);g.fillStyle='#63c5a0';rr(p[0],p[1],32,26,5);g.fill();zoneLabel(repairNode.x,repairNode.y-26,'REPAIR','#92eac8')}
+
+ drawCache(cache1,'脚部反応',parts.some(p=>p.kind==='legs')||securedParts.includes('legs'));
+ drawCache(cache2,'武器パーツ反応',parts.some(p=>p.kind==='cannon')||securedParts.includes('cannon'));
+ drawCache(cache3,'特殊モジュール反応',parts.some(p=>p.kind==='barrier')||securedParts.includes('barrier'));
+
+ // enemy attack telegraphs
+ for(const m of artilleryMarks){
+  const p=screen(m.x,m.y),progress=Math.min(1,m.t/1.45);
+  g.fillStyle='rgba(255,55,45,'+(0.14+progress*.26)+')';
+  g.beginPath();g.arc(p[0],p[1],46,0,Math.PI*2);g.fill();
+  g.strokeStyle='rgba(255,85,65,.98)';g.lineWidth=3;g.beginPath();g.arc(p[0],p[1],46,0,Math.PI*2);g.stroke();
+  g.strokeStyle='rgba(255,255,255,.95)';g.lineWidth=3;g.beginPath();g.arc(p[0],p[1],46*(1-progress),0,Math.PI*2);g.stroke();
+ }
+ for(const f of impactFlashes){
+  const p=screen(f.x,f.y),a=Math.max(0,1-f.t/.28);
+  g.fillStyle='rgba(255,80,45,'+(a*.7)+')';g.beginPath();g.arc(p[0],p[1],58,0,Math.PI*2);g.fill();
+ }
+
+ // enemies
+ for(const e of enemies){
+  const p=screen(e.x,e.y);
+  if(e.type==='p'){
+   g.fillStyle='#914744';rr(p[0],p[1],36,30,6);g.fill();g.fillStyle='#ffb26b';g.fillRect(p[0]-9,p[1]-3,18,6);
+   if(e.wind>0){
+    const progress=1-e.wind/.62;
+    g.strokeStyle='#ff5f50';g.lineWidth=4;g.beginPath();g.arc(p[0],p[1],29+progress*14,0,Math.PI*2);g.stroke();
+    g.fillStyle='#fff';g.font='bold 10px sans-serif';g.textAlign='center';g.fillText('ATTACK',p[0],p[1]-35);g.textAlign='left';
+   }
+  }else{
+   g.fillStyle='#684a83';rr(p[0],p[1],40,32,6);g.fill();g.fillStyle='#d3a8ff';g.fillRect(p[0]-10,p[1]-4,20,8);
+  }
+ }
+ g.fillStyle='#ffc26b';
+ for(const s of shots){const p=screen(s.x,s.y);g.beginPath();g.arc(p[0],p[1],3,0,Math.PI*2);g.fill()}
+ drawMech();
+
+ if(extractProgress>0){
+  const w=Math.min(180,W*.48),x=(W-w)/2,y=H-178;
+  g.fillStyle='#071019cc';rr(W/2,y,w,18,7);g.fill();g.fillStyle='#60e49a';g.fillRect(x+3,y-6,(w-6)*Math.min(1,extractProgress/4),12);
+  g.fillStyle='#fff';g.font='10px sans-serif';g.textAlign='center';g.fillText('EXTRACTING...',W/2,y-13);g.textAlign='left';
+ }
+}
+
+function drawCache(cache,label,taken){
+ if(taken)return;
+ const p=screen(cache.x,cache.y);g.fillStyle='#4c9cff';rr(p[0],p[1],44,34,6);g.fill();zoneLabel(cache.x,cache.y-28,label,'#b8dcff');
+}
+
+function pickupPart(cache){
+ if(parts.some(p=>p.kind===cache.kind)||securedParts.includes(cache.kind))return;
+ parts.push({name:cache.name,kind:cache.kind,stars:cache.stars});
+ logEvent('part',{kind:cache.kind,hp:Math.round(hp),repair:repair,value:unsecuredStars()});
+ if(cache.kind==='legs'){
+  setObjective('高出力レッグを回収。帰還可能 / 奥に「武器パーツ反応」');
+ }else if(cache.kind==='cannon'){
+  setObjective('重装キャノンを回収。帰還可能 / 最深部に「特殊モジュール反応」');
+ }else{
+  setObjective('バリアモジュールを回収。これ以上の深部報酬はありません');
+ }
+ syncHud();if(navigator.vibrate)navigator.vibrate([18,35,18]);
+}
+
+function update(dt,t){
+ if(mode!=='run')return;
+ const hasLegs=equipped==='legs';
+ const max=hasLegs?215:170;
+ const mag=Math.min(1,Math.hypot(joyX,joyY));
+ if(mag>.05){
+  const target=Math.atan2(joyY,joyX);
+  ang=target;
+  vx=Math.cos(target)*max*mag;
+  vy=Math.sin(target)*max*mag;
+ }else{
+  vx=0;
+  vy=0;
+ }
+
+ let nx=px+vx*dt,ny=py+vy*dt;
+ if(!collide(nx,py))px=nx;else vx=0;
+ if(!collide(px,ny))py=ny;else vy=0;
+ if(shooting)fire(t);
+ flash=Math.max(0,flash-dt*6);
+
+ // bullets
+ for(let i=shots.length-1;i>=0;i--){
+  const s=shots[i];s.x+=s.vx*dt;s.y+=s.vy*dt;s.life-=dt;
+  for(const e of enemies){if(e.hp>0&&dist(s.x,s.y,e.x,e.y)<26){e.hp-=s.d;s.life=0;break}}
+  if(s.life<=0)shots.splice(i,1);
+ }
+ enemies=enemies.filter(e=>e.hp>0);
+
+ // enemies
+ for(const e of enemies){
+  e.cd-=dt;
+  const dx=px-e.x,dy=py-e.y,l=Math.hypot(dx,dy)||1;
+  const tier=e.tier||1;
+  if(e.type==='p'){
+   const chase=tier===1?48:(tier===2?58:68);
+   if(e.wind>0){
+    e.wind-=dt;
+    if(e.wind<=0){
+     if(dist(px,py,e.x,e.y)<58){
+      const dmg=tier===1?15:(tier===2?18:21);
+      hp-=equipped==='barrier'?Math.round(dmg*.68):dmg;
+      impactFlashes.push({x:px,y:py,t:0});
+      if(navigator.vibrate)navigator.vibrate(10);
+     }
+     e.cd=1.15;
+    }
+   }else{
+    if(l<390&&l>42){e.x+=dx/l*chase*dt;e.y+=dy/l*chase*dt}
+    if(l<52&&e.cd<=0)e.wind=.62;
+   }
+  }else{
+   if(l<250){e.x-=dx/l*22*dt;e.y-=dy/l*22*dt}
+   else if(l>410){e.x+=dx/l*16*dt;e.y+=dy/l*16*dt}
+   if(l<500&&e.cd<=0){
+    artilleryMarks.push({x:px,y:py,t:0,tier:tier});
+    e.cd=tier===1?3.2:(tier===2?2.8:2.4);
+   }
+  }
+ }
+
+ // artillery
+ for(let i=artilleryMarks.length-1;i>=0;i--){
+  const m=artilleryMarks[i];m.t+=dt;
+  if(m.t>=1.45){
+   if(dist(px,py,m.x,m.y)<46){
+    const dmg=m.tier===3?34:(m.tier===2?30:26);
+    hp-=equipped==='barrier'?Math.round(dmg*.68):dmg;
+    if(navigator.vibrate)navigator.vibrate(12);
+   }
+   impactFlashes.push({x:m.x,y:m.y,t:0});
+   artilleryMarks.splice(i,1);
+  }
+ }
+ for(let i=impactFlashes.length-1;i>=0;i--){
+  impactFlashes[i].t+=dt;
+  if(impactFlashes[i].t>.28)impactFlashes.splice(i,1);
+ }
+
+ // pickups
+ for(const s of salvageNodes){
+  if(!s.taken&&dist(px,py,s.x,s.y)<34){s.taken=true;salvage++;logEvent('salvage',{value:unsecuredStars()});setObjective('SALVAGE回収。未確保価値が増加');syncHud()}
+ }
+ if(repairNode&&!repairNode.taken&&dist(px,py,repairNode.x,repairNode.y)<36){
+  repairNode.taken=true;repair++;logEvent('repair_pickup',{repair:repair});syncHud();
+ }
+
+ if(dist(px,py,cache1.x,cache1.y)<42)pickupPart(cache1);
+ if(dist(px,py,cache2.x,cache2.y)<42)pickupPart(cache2);
+ if(dist(px,py,cache3.x,cache3.y)<42)pickupPart(cache3);
+
+ // decision logging by crossing depth after prior part
+ if(parts.some(p=>p.kind==='legs')&&!decision1&&py<-900){
+  decision1={choice:'push',hp:Math.round(hp),repair:repair,value:unsecuredStars()};logEvent('decision1',decision1);
+ }
+ if(parts.some(p=>p.kind==='cannon')&&!decision2&&py<-1580){
+  decision2={choice:'push',hp:Math.round(hp),repair:repair,value:unsecuredStars()};logEvent('decision2',decision2);
+ }
+
+ // return enemies once player turns home with value
+ if(parts.length&&!returnSpawned&&py>-480){
+  returnSpawned=true;
+  enemies.push({type:'p',x:-155,y:-210,hp:5,cd:.1,tier:2,wind:0},{type:'p',x:135,y:-120,hp:5,cd:.2,tier:2,wind:0},{type:'a',x:205,y:35,hp:4,cd:.4,tier:2,wind:0});
+ }
+
+ // extraction
+ if(parts.length&&dist(px,py,extract.x,extract.y)<extract.r){
+  if(!decision1)decision1={choice:'return',hp:Math.round(hp),repair:repair,value:unsecuredStars()};
+  if(parts.some(p=>p.kind==='cannon')&&!decision2)decision2={choice:'return',hp:Math.round(hp),repair:repair,value:unsecuredStars()};
+  if(!extractAmbush){
+   extractAmbush=true;
+   enemies.push(
+    {type:'p',x:-145,y:205,hp:5,cd:.1,tier:2,wind:0},
+    {type:'p',x:150,y:210,hp:5,cd:.15,tier:2,wind:0},
+    {type:'a',x:0,y:70,hp:4,cd:.25,tier:2,wind:0}
+   );
+   setObjective('EXTRACTION開始。4秒間、生存してください');
+  }
+  extractProgress+=dt;
+  if(extractProgress>=4){completeExtraction();return}
+ }else extractProgress=Math.max(0,extractProgress-dt*1.5);
+
+ if(hp<=0){failRun();return}
+ syncHud();
+}
+
+function completeExtraction(){
+ mode='garage';
+ logEvent('extract',{hp:Math.round(hp),repair:repair,value:unsecuredStars(),parts:parts.map(p=>p.kind)});
+ for(const p of parts)if(!securedParts.includes(p.kind))securedParts.push(p.kind);
+ const names=parts.map(p=>p.name).join(' / ');
+ document.getElementById('haul').innerHTML='<div class="stat"><span>確保パーツ</span><b>'+(names||'なし')+'</b></div><div class="stat"><span>サルベージ</span><b>★'+salvage+'</b></div>';
+ const best=parts[parts.length-1]||null;
+ document.getElementById('partDesc').textContent=best?best.name+' を装備可能。':'今回の機能パーツなし';
+ document.getElementById('equipBtn').disabled=!best;
+ document.getElementById('equipBtn').dataset.kind=best?best.kind:'';
+ document.getElementById('garage').style.display='flex';
+ setObjective('帰還成功');
+}
+
+function failRun(){
+ mode='fail';logEvent('death',{depth:Math.round(-py),value:unsecuredStars(),hp:0,repair:repair});
+ document.getElementById('fail').style.display='flex';setObjective('機体破壊');
+}
+
+function openEval(){
+ mode='eval';
+ const d1=decision1?decision1.choice:'なし',d2=decision2?decision2.choice:'なし';
+ document.getElementById('log').innerHTML=
+  '<b>今回の行動ログ</b><br>'+
+  '第1判断: '+d1+'<br>'+
+  '第2判断: '+d2+'<br>'+
+  '確保済みパーツ: '+securedParts.join(', ')+'<br>'+
+  '出撃回数: '+runNo+'<br><br>'+
+  '回答後、このチャットで「○ / △ / ○」のように教えてください。';
+ document.getElementById('eval').style.display='flex';
+}
+
+let prev=performance.now();
+function loop(ts){const dt=Math.min(.033,(ts-prev)/1000);prev=ts;update(dt,ts/1000);draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+
+// touch controls
+let jid=null;
+function joySet(t){
+ const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+ let dx=t.clientX-cx,dy=t.clientY-cy,m=40,l=Math.hypot(dx,dy)||1;
+ if(l>m){dx*=m/l;dy*=m/l}
+ joyX=dx/m;joyY=dy/m;knob.style.transform='translate('+dx+'px,'+dy+'px)';
+}
+joy.addEventListener('touchstart',e=>{e.preventDefault();const t=e.changedTouches[0];jid=t.identifier;joySet(t)},{passive:false});
+joy.addEventListener('touchmove',e=>{e.preventDefault();for(const t of e.changedTouches)if(t.identifier===jid)joySet(t)},{passive:false});
+function joyEnd(e){e.preventDefault();for(const t of e.changedTouches)if(t.identifier===jid){jid=null;joyX=joyY=0;knob.style.transform='translate(0,0)'}}
+joy.addEventListener('touchend',joyEnd,{passive:false});joy.addEventListener('touchcancel',joyEnd,{passive:false});
+
+fireBtn.addEventListener('touchstart',e=>{e.preventDefault();shooting=true},{passive:false});
+fireBtn.addEventListener('touchend',e=>{e.preventDefault();shooting=false},{passive:false});
+fireBtn.addEventListener('touchcancel',e=>{e.preventDefault();shooting=false},{passive:false});
+repairBtn.addEventListener('touchstart',e=>{e.preventDefault();useRepair()},{passive:false});
+
+document.getElementById('startBtn').onclick=()=>{document.getElementById('start').style.display='none';resetRun()};
+document.getElementById('retryBtn').onclick=()=>{document.getElementById('fail').style.display='none';resetRun()};
+document.getElementById('failEvalBtn').onclick=()=>{document.getElementById('fail').style.display='none';openEval()};
+document.getElementById('finishBtn').onclick=()=>{document.getElementById('garage').style.display='none';openEval()};
+document.getElementById('equipBtn').onclick=function(){
+ const k=this.dataset.kind;if(k){equipped=k;this.textContent='装備済み';this.disabled=true;document.getElementById('redeployBtn').classList.add('primary');logEvent('equip',{kind:k})}
+};
+document.getElementById('redeployBtn').onclick=()=>{document.getElementById('garage').style.display='none';resetRun()};
+
+document.querySelectorAll('#eval .row').forEach(r=>r.querySelectorAll('.choice').forEach(b=>b.onclick=()=>{r.querySelectorAll('.choice').forEach(z=>z.classList.remove('on'));b.classList.add('on')}));
+
+document.addEventListener('touchmove',e=>{if(e.target===c)e.preventDefault()},{passive:false});
+</script>
+</body>
+</html>
