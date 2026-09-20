@@ -45,7 +45,7 @@ button.ui.primary{background:#edf2f6;color:#101820;border-color:#edf2f6}
   <div class="panel">
     <h1>MECH RUN TEST v0.2</h1>
     <p><b>操作・射撃方向・敵攻撃表示の修正版です。見るのは「欲張るか、帰るか」です。</b></p>
-    <p class="small">左スティックで移動、FIREで射撃、REPAIRで修理。重要パーツを拾った後は、入口の緑色EXTRACTへ戻れば確保できます。さらに奥には次の報酬反応があります。</p>
+    <p class="small">左スティックで移動、FIREで射撃、REPAIRで修理。黄色い箱はSALVAGE（汎用価値）で、持つほど未確保価値が増えます。重要パーツを拾った後は、入口の緑色EXTRACTへ戻れば確保できます。さらに奥には次の報酬反応があります。</p>
     <button class="ui primary" id="startBtn">出撃</button>
   </div>
 </div>
@@ -167,7 +167,7 @@ function fire(t){
  if(t-lastShot<cd)return;
  lastShot=t;
  const hx=Math.cos(ang),hy=Math.sin(ang),pvx=-hy,pvy=hx;
- const side=14,len=equipped==='cannon'?76:62,sp=equipped==='cannon'?650:760;
+ const side=8,len=equipped==='cannon'?50:42,sp=equipped==='cannon'?650:760;
  const mx=px+pvx*side+hx*len,my=py+pvy*side+hy*len;
  shots.push({x:mx,y:my,vx:hx*sp,vy:hy*sp,life:1.2,d:equipped==='cannon'?2.6:1});
  flash=1;
@@ -181,7 +181,7 @@ function useRepair(){
 
 function gunGeom(){
  const hx=Math.cos(ang),hy=Math.sin(ang),pvx=-hy,pvy=hx;
- const side=14,len=equipped==='cannon'?76:62;
+ const side=8,len=equipped==='cannon'?50:42;
  const baseX=W/2+pvx*side,baseY=H/2+pvy*side;
  return {hx,hy,pvx,pvy,side,len,baseX,baseY,muzzleX:baseX+hx*len,muzzleY:baseY+hy*len};
 }
@@ -230,7 +230,7 @@ function draw(){
  zoneLabel(extract.x,extract.y-extract.r-12,'EXTRACT',parts.length?'#8dffb5':'#6f8d7b');
 
  // loot nodes
- for(const s of salvageNodes)if(!s.taken){const p=screen(s.x,s.y);g.fillStyle='#d0a257';rr(p[0],p[1],30,24,5);g.fill()}
+ for(const s of salvageNodes)if(!s.taken){const p=screen(s.x,s.y);g.fillStyle='#d0a257';rr(p[0],p[1],30,24,5);g.fill();zoneLabel(s.x,s.y-23,'SALVAGE','#f4cf8b')}
  if(repairNode&&!repairNode.taken){const p=screen(repairNode.x,repairNode.y);g.fillStyle='#63c5a0';rr(p[0],p[1],32,26,5);g.fill();zoneLabel(repairNode.x,repairNode.y-26,'REPAIR','#92eac8')}
 
  drawCache(cache1,'脚部反応',parts.some(p=>p.kind==='legs')||securedParts.includes('legs'));
@@ -375,7 +375,7 @@ function update(dt,t){
 
  // pickups
  for(const s of salvageNodes){
-  if(!s.taken&&dist(px,py,s.x,s.y)<34){s.taken=true;salvage++;logEvent('salvage',{value:unsecuredStars()});syncHud()}
+  if(!s.taken&&dist(px,py,s.x,s.y)<34){s.taken=true;salvage++;logEvent('salvage',{value:unsecuredStars()});setObjective('SALVAGE回収。未確保価値が増加');syncHud()}
  }
  if(repairNode&&!repairNode.taken&&dist(px,py,repairNode.x,repairNode.y)<36){
   repairNode.taken=true;repair++;logEvent('repair_pickup',{repair:repair});syncHud();
