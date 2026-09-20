@@ -200,7 +200,7 @@ function update(dt,t){
     if(l<260){e.x+=dx/l*52*dt;e.y+=dy/l*52*dt}
     if(l<35){hp-=18*dt}
   });
-  if(hp<=0){mode='fail';partHeld=false;lootEl.textContent='未確保パーツ: 失失';document.getElementById('fail').style.display='flex';return}
+  if(hp<=0){mode='fail';partHeld=false;lootEl.textContent='未確保パーツ: 失った';document.getElementById('fail').style.display='flex';return}
 
   if(mode==='run1'){
     if(!partHeld&&!partSecured&&dist(px,py,cache1.x,cache1.y)<42){
