@@ -44,7 +44,7 @@ button.ui.primary{background:#edf2f6;color:#101820;border-color:#edf2f6}
 <div id="start" class="overlay" style="display:flex">
   <div class="panel">
     <h1>MECH RUN TEST v0.1</h1>
-    <p><b>今回は難易度調整版です。見るのは「欲張るか、帰るか」です。</b></p>
+    <p><b>難易度調整＋操作品質修正版です。見るのは「欲張るか、帰るか」です。</b></p>
     <p class="small">左スティックで移動、FIREで射撃、REPAIRで修理。重要パーツを拾った後は、入口の緑色EXTRACTへ戻れば確保できます。さらに奥には次の報酬反応があります。</p>
     <button class="ui primary" id="startBtn">出撃</button>
   </div>
@@ -167,7 +167,11 @@ function fire(t){
  if(t-lastShot<cd)return;
  lastShot=t;
  const dx=Math.cos(ang),dy=Math.sin(ang),sp=equipped==='cannon'?650:760;
- shots.push({x:px+dx*52,y:py+dy*52,vx:dx*sp,vy:dy*sp,life:1.2,d:equipped==='cannon'?2.6:1});
+ const muzzle=equipped==='cannon'?116:103;
+ const side=-4;
+ const mx=px+Math.cos(ang)*muzzle-Math.sin(ang)*side;
+ const my=py+Math.sin(ang)*muzzle+Math.cos(ang)*side;
+ shots.push({x:mx,y:my,vx:dx*sp,vy:dy*sp,life:1.2,d:equipped==='cannon'?2.6:1});
  flash=1;
  if(navigator.vibrate)navigator.vibrate(4);
 }
@@ -179,7 +183,7 @@ function useRepair(){
 }
 
 function drawMech(){
- g.save();g.translate(W/2,H/2);g.rotate(ang+Math.PI/2);
+ g.save();g.translate(W/2,H/2);g.rotate(ang);
  g.fillStyle='#0007';g.beginPath();g.ellipse(0,27,29,12,0,0,Math.PI*2);g.fill();
  g.fillStyle=equipped==='legs'?'#bd7338':'#37434e';
  rr(-17,21,14,44,5);g.fill();rr(17,21,14,44,5);g.fill();
@@ -271,14 +275,21 @@ function pickupPart(cache){
 function update(dt,t){
  if(mode!=='run')return;
  const hasLegs=equipped==='legs';
- const acc=hasLegs?600:470,max=hasLegs?300:235,turn=hasLegs?7.3:6.2,drag=5.4;
+ const max=hasLegs?300:235,turn=hasLegs?9.2:8.2,response=hasLegs?12.5:11.0,brake=16.0;
  const mag=Math.min(1,Math.hypot(joyX,joyY));
  if(mag>.05){
   const target=Math.atan2(joyY,joyX);let d=((target-ang+Math.PI*3)%(Math.PI*2))-Math.PI;
   ang+=d*Math.min(1,turn*dt);
-  const dx=Math.cos(ang),dy=Math.sin(ang);vx+=dx*acc*mag*dt;vy+=dy*acc*mag*dt;
-  const sp=Math.hypot(vx,vy);if(sp>max){vx=vx/sp*max;vy=vy/sp*max}
- }else{const f=Math.max(0,1-drag*dt);vx*=f;vy*=f}
+  const desiredX=Math.cos(target)*max*mag,desiredY=Math.sin(target)*max*mag;
+  const follow=Math.min(1,response*dt);
+  vx+=(desiredX-vx)*follow;
+  vy+=(desiredY-vy)*follow;
+ }else{
+  const f=Math.exp(-brake*dt);
+  vx*=f;vy*=f;
+  if(Math.abs(vx)<1)vx=0;
+  if(Math.abs(vy)<1)vy=0;
+ }
 
  let nx=px+vx*dt,ny=py+vy*dt;
  if(!collide(nx,py))px=nx;else vx=0;
