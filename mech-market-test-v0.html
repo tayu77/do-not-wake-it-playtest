@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Project Frame — Product Test</title>
+<style>
+:root{
+  --bg:#080b10;--panel:#10161e;--line:#26323d;--text:#eaf0f5;--muted:#9aa7b2;
+  --cyan:#64d7e8;--amber:#e89b4b;--green:#69d391;--red:#e56868;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{min-height:100vh}
+.wrap{width:min(1100px,100%);margin:0 auto;padding:18px 14px 44px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.brand{font-weight:900;letter-spacing:.12em;font-size:13px;color:#dce6ee}
+.step{font-size:12px;color:var(--muted)}
+.card{background:linear-gradient(180deg,#101720,#0c1118);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 20px 70px #0008}
+.stage{position:relative;background:#070a0f;aspect-ratio:16/9}
+canvas{width:100%;height:100%;display:block}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.badge{position:absolute;left:18px;top:16px;padding:7px 10px;border:1px solid #ffffff2d;background:#071018d9;border-radius:8px;font-size:11px;letter-spacing:.08em}
+.phase{position:absolute;right:18px;top:16px;padding:7px 10px;border:1px solid #ffffff20;background:#071018c8;border-radius:8px;font-size:11px;color:#cbd4dc}
+.tagline{position:absolute;left:0;right:0;bottom:20px;text-align:center;font-weight:900;letter-spacing:.08em;font-size:clamp(18px,3vw,34px);text-shadow:0 3px 18px #000}
+.controls{display:flex;gap:10px;padding:12px;background:#0d131b;border-top:1px solid var(--line)}
+button{appearance:none;border:1px solid #42505d;background:#18222d;color:white;border-radius:10px;min-height:44px;padding:0 16px;font-weight:800;font-size:14px}
+button.primary{background:#edf3f7;color:#101820;border-color:#edf3f7}
+button:disabled{opacity:.45}
+.note{padding:14px 16px;color:#aeb9c2;font-size:13px;line-height:1.55;border-top:1px solid var(--line)}
+#survey{margin-top:18px;display:none}
+#survey h2{margin:0 0 6px;font-size:20px}
+#survey p.lead{margin:0 0 16px;color:var(--muted);font-size:13px}
+.q{background:#0f151d;border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
+.q b{display:block;margin-bottom:9px;font-size:14px}
+textarea,input[type=text]{width:100%;background:#080d13;color:#eef4f8;border:1px solid #34414d;border-radius:9px;padding:11px;font-size:15px;resize:vertical}
+textarea{min-height:82px}
+.choices{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.choice{position:relative}
+.choice input{position:absolute;opacity:0}
+.choice span{display:flex;min-height:44px;align-items:center;justify-content:center;text-align:center;border:1px solid #3a4652;background:#111a23;border-radius:9px;padding:8px;font-size:13px}
+.choice input:checked+span{background:#eaf1f6;color:#111820;border-color:#eaf1f6;font-weight:800}
+.actions{display:flex;gap:10px;margin-top:12px}
+#status{font-size:12px;color:#a8b4bd;margin-top:8px}
+#fallback{display:none;margin-top:8px;min-height:150px}
+@media(max-width:650px){
+ .wrap{padding:10px 8px 30px}.controls{flex-wrap:wrap}.controls button{flex:1}.choices{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><div class="brand">PROJECT FRAME / CONCEPT TEST</div><div class="step" id="step">Visual 1 / 2</div></div>
+
+  <div class="card">
+    <div class="stage">
+      <canvas id="c"></canvas>
+      <div class="badge" id="badge">UNSECURED PART ★★★★★</div>
+      <div class="phase" id="phase">5 SECOND KEY VISUAL</div>
+      <div class="tagline" id="tagline"></div>
+    </div>
+    <div class="controls">
+      <button class="primary" id="playBtn">12秒を見る</button>
+      <button id="replayBtn" disabled>もう一度見る</button>
+    </div>
+    <div class="note" id="desc">
+      最初は画像だけを見てください。次に12秒の短い映像が流れます。映像を1回見たあと、第一印象をそのまま答えてください。
+    </div>
+  </div>
+
+  <section id="survey">
+    <h2>第一印象を教えてください</h2>
+    <p class="lead">正解はありません。説明を補完せず、今見えたものだけで答えてください。</p>
+
+    <div class="q"><b>1. どんなゲームだと思いましたか？</b><textarea id="q1" placeholder="例：〇〇するゲーム"></textarea></div>
+    <div class="q"><b>2. 一番「やってみたい」と感じた部分は何ですか？ なければ「なし」でOKです。</b><textarea id="q2"></textarea></div>
+    <div class="q"><b>3. 他のメカゲーム / Extraction系と違いそうに見えた点はありましたか？</b><textarea id="q3"></textarea></div>
+    <div class="q"><b>4. 出撃して壊された場合、何を失うゲームだと思いましたか？</b><input id="q4" type="text" placeholder="自由記入"></div>
+    <div class="q"><b>5. Steamで見かけたらどうしますか？</b>
+      <div class="choices">
+        <label class="choice"><input type="radio" name="intent" value="wishlist"><span>ウィッシュリストする</span></label>
+        <label class="choice"><input type="radio" name="intent" value="demo"><span>デモなら試す</span></label>
+        <label class="choice"><input type="radio" name="intent" value="ignore"><span>たぶんスルーする</span></label>
+      </div>
+    </div>
+    <div class="q"><b>6. その理由を一言で教えてください。</b><textarea id="q6"></textarea></div>
+
+    <div class="actions"><button class="primary" id="submitBtn">回答を送る</button><button id="copyBtn">回答をコピー</button></div>
+    <div id="status"></div>
+    <textarea id="fallback" readonly></textarea>
+  </section>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const C=document.getElementById('c'),g=C.getContext('2d');
+const stage=C.parentElement,badge=document.getElementById('badge'),phase=document.getElementById('phase'),tagline=document.getElementById('tagline');
+const playBtn=document.getElementById('playBtn'),replayBtn=document.getElementById('replayBtn'),survey=document.getElementById('survey'),desc=document.getElementById('desc'),step=document.getElementById('step');
+const COLLECTOR_URL='https://script.google.com/macros/s/AKfycbwDGy7KUEnEYc4LuNQR8ThJCIesUkTNAGT_StDzwhVCH7v1Wk3N9rlU_3gsA35sDSWC/exec';
+const BUILD='mech-market-v0-2026-09-20';
+let W=1280,H=720,dpr=1,mode='hero',start=0,raf=0,viewCount=0;
+
+function resize(){
+ const r=stage.getBoundingClientRect(); dpr=Math.min(devicePixelRatio||1,2);
+ C.width=Math.max(1,Math.round(r.width*dpr)); C.height=Math.max(1,Math.round(r.height*dpr));
+ g.setTransform(C.width/W,0,0,C.height/H,0,0);
+ if(mode==='hero')drawHero();
+}
+addEventListener('resize',resize);
+
+function rr(x,y,w,h,r){g.beginPath();g.roundRect(x,y,w,h,r)}
+function bg(){
+ const grd=g.createLinearGradient(0,0,0,H);grd.addColorStop(0,'#121a23');grd.addColorStop(1,'#080c11');g.fillStyle=grd;g.fillRect(0,0,W,H);
+ g.strokeStyle='#ffffff0b';g.lineWidth=1;
+ for(let x=0;x<W;x+=64){g.beginPath();g.moveTo(x,0);g.lineTo(x,H);g.stroke()}
+ for(let y=0;y<H;y+=64){g.beginPath();g.moveTo(0,y);g.lineTo(W,y);g.stroke()}
+}
+
+function mech(x,y,s=1,variant=2,dir=-.08){
+ g.save();g.translate(x,y);g.scale(s,s);g.rotate(dir);
+ g.fillStyle='#0007';g.beginPath();g.ellipse(8,38,72,24,0,0,Math.PI*2);g.fill();
+ // legs
+ const spread=variant>=1?43:34,len=72;
+ g.strokeStyle=variant>=1?'#3d95aa':'#65737e';g.lineWidth=28;g.lineCap='round';
+ g.beginPath();g.moveTo(-spread,-2);g.lineTo(-spread-12,len);g.stroke();
+ g.beginPath();g.moveTo(spread,-2);g.lineTo(spread+12,len);g.stroke();
+ if(variant>=1){g.fillStyle='#8ae8f2';g.beginPath();g.arc(-spread-12,len,11,0,7);g.arc(spread+12,len,11,0,7);g.fill()}
+ // torso
+ g.fillStyle='#8c9ba7';g.strokeStyle='#d9e2e8';g.lineWidth=4;rr(-58,-54,116,94,23);g.fill();g.stroke();
+ g.fillStyle='#27323c';rr(-38,-35,76,58,15);g.fill();
+ // sensor
+ g.fillStyle='#62d7e8';g.beginPath();g.arc(33,-6,12,0,7);g.fill();
+ // shield pod
+ if(variant>=2){g.fillStyle='#456b76';rr(-76,-39,29,50,8);g.fill();g.strokeStyle='#77e7ef';g.lineWidth=3;g.stroke()}
+ // cannon
+ g.strokeStyle=variant>=2?'#d17e34':'#b1bbc2';g.lineWidth=variant>=2?30:18;g.beginPath();g.moveTo(25,-25);g.lineTo(126,-38);g.stroke();
+ g.fillStyle='#1a222a';g.beginPath();g.arc(128,-38,variant>=2?16:10,0,7);g.fill();
+ g.restore();
+}
+
+function crate(x,y){
+ g.fillStyle='#c77e2f';rr(x-35,y-28,70,56,8);g.fill();
+ g.strokeStyle='#ffc078';g.lineWidth=3;g.stroke();
+ g.fillStyle='#fff1d9';g.font='700 16px sans-serif';g.textAlign='center';g.fillText('PART',x,y+5);
+}
+
+function arrow(x1,y1,x2,y2,color,label){
+ g.strokeStyle=color;g.fillStyle=color;g.lineWidth=6;g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke();
+ const a=Math.atan2(y2-y1,x2-x1);g.beginPath();g.moveTo(x2,y2);g.lineTo(x2-Math.cos(a-.55)*22,y2-Math.sin(a-.55)*22);g.lineTo(x2-Math.cos(a+.55)*22,y2-Math.sin(a+.55)*22);g.closePath();g.fill();
+ g.font='800 18px sans-serif';g.textAlign='center';g.fillText(label,(x1+x2)/2,(y1+y2)/2-14);
+}
+
+function hudRisk(){
+ g.fillStyle='#081019dd';g.strokeStyle='#ffffff25';g.lineWidth=2;rr(36,36,320,112,12);g.fill();g.stroke();
+ g.fillStyle='#eaf1f5';g.font='700 18px sans-serif';g.textAlign='left';g.fillText('DEPLOYED MECH VALUE',58,67);
+ g.fillStyle='#e89b4b';g.font='900 28px sans-serif';g.fillText('₡ 42,800  AT RISK',58,105);
+ g.fillStyle='#9cb0bf';g.font='14px sans-serif';g.fillText('LEGS ★★★  CANNON ★★★★  SHIELD ★★★',58,132);
+}
+
+function drawHero(){
+ bg();
+ // deeper route glow
+ const grad=g.createRadialGradient(1070,310,10,1070,310,300);grad.addColorStop(0,'#8b3f2033');grad.addColorStop(1,'#0000');g.fillStyle=grad;g.fillRect(760,0,520,620);
+ // extraction glow
+ const eg=g.createRadialGradient(170,330,10,170,330,240);eg.addColorStop(0,'#3e976244');eg.addColorStop(1,'#0000');g.fillStyle=eg;g.fillRect(0,90,400,520);
+ // debris/enemies
+ g.fillStyle='#26313a';for(let i=0;i<13;i++){const x=120+((i*113)%1050),y=470+((i*53)%170);rr(x,y,55+(i%3)*22,25+(i%2)*16,6);g.fill()}
+ g.fillStyle='#733738';g.beginPath();g.arc(1035,330,48,0,7);g.fill();g.strokeStyle='#e06d6d';g.lineWidth=4;g.stroke();
+ g.fillStyle='#d7e1e7';g.font='700 16px sans-serif';g.textAlign='center';g.fillText('ELITE',1035,398);
+ // player
+ mech(615,410,1.18,2,-.05);
+ crate(748,468);
+ hudRisk();
+ // unsecured badge at crate
+ g.fillStyle='#100c08e8';g.strokeStyle='#f1a85b';g.lineWidth=2;rr(685,505,185,62,9);g.fill();g.stroke();
+ g.fillStyle='#ffc078';g.font='900 18px sans-serif';g.textAlign='center';g.fillText('UNSECURED ★★★★★',777,541);
+ // arrows
+ arrow(560,570,235,520,'#65d694','EXTRACT');
+ arrow(750,555,1000,490,'#e89b4b','DEEPER');
+ // labels
+ g.fillStyle='#8cebb1';g.font='900 24px sans-serif';g.fillText('SAFETY',170,285);
+ g.fillStyle='#f0a35b';g.fillText('BETTER HARDWARE',1040,250);
+ badge.style.display='block';phase.textContent='5 SECOND KEY VISUAL';tagline.textContent='';
+}
+
+function drawGarage(p){
+ bg();
+ g.fillStyle='#16222b';g.fillRect(120,130,1040,500);
+ g.strokeStyle='#31404b';g.lineWidth=4;g.strokeRect(120,130,1040,500);
+ for(let i=0;i<7;i++){g.fillStyle='#22303a';g.fillRect(165+i*135,180,70,22)}
+ mech(590,390,1.35,p<.55?1:2,0);
+ g.fillStyle='#dbe5ec';g.font='900 28px sans-serif';g.textAlign='left';g.fillText('FRAME 07 / PERSONAL MECH',160,95);
+ if(p<.55){
+   g.fillStyle='#9fb0bc';g.font='18px sans-serif';g.fillText('Installing recovered HEAVY CANNON...',160,600);
+   g.strokeStyle='#e89b4b';g.lineWidth=8;g.beginPath();g.moveTo(780,260);g.lineTo(855,220);g.stroke();
+ }else{
+   g.fillStyle='#67d6e7';g.font='900 22px sans-serif';g.fillText('BUILD UPDATED',160,600);
+ }
+}
+
+function drawDeploy(p){
+ bg();
+ // walls
+ g.fillStyle='#27323a';for(let i=0;i<9;i++){const x=100+((i*151)%1080),y=170+((i*97)%420);rr(x,y,95,55,8);g.fill()}
+ // enemy
+ const ex=930-p*70,ey=345;g.fillStyle='#8a4444';g.beginPath();g.arc(ex,ey,38,0,7);g.fill();g.strokeStyle='#ef7c71';g.lineWidth=4;g.stroke();
+ // player moves slowly
+ const mx=360+p*240,my=455-p*70;mech(mx,my,.86,2,-.10);
+ g.strokeStyle='#efad62';g.lineWidth=7;g.beginPath();g.moveTo(mx+95,my-55);g.lineTo(ex-30,ey);g.stroke();
+ g.fillStyle='#fff';g.font='800 18px sans-serif';g.textAlign='left';g.fillText('ONE MECH. YOUR BUILD.',40,60);
+}
+
+function drawLoot(p){
+ bg();
+ mech(470,430,.92,2,-.08);
+ crate(710,400);
+ g.fillStyle='#17212a';rr(660,300,270,90,12);g.fill();g.strokeStyle='#e89b4b';g.lineWidth=2;g.stroke();
+ g.fillStyle='#ffc078';g.font='900 26px sans-serif';g.textAlign='center';g.fillText('HIGH-VALUE LEG UNIT',795,335);
+ g.fillStyle='#fff1d9';g.font='800 19px sans-serif';g.fillText('UNSECURED ★★★★★',795,372);
+ hudRisk();
+ if(p>.55){g.fillStyle='#e56868';g.font='900 22px sans-serif';g.fillText('CURRENT MECH AT RISK',640,620)}
+}
+
+function drawFork(p){
+ bg();
+ mech(635,430,.9,2,0);
+ crate(755,470);
+ hudRisk();
+ // extract beacon
+ g.strokeStyle='#69d391';g.lineWidth=8;g.beginPath();g.arc(220,380,75,0,7);g.stroke();
+ g.fillStyle='#69d391';g.font='900 28px sans-serif';g.textAlign='center';g.fillText('EXTRACT',220,500);
+ // deep elite
+ g.fillStyle='#733638';g.beginPath();g.arc(1060,365,70,0,7);g.fill();g.strokeStyle='#ef7970';g.lineWidth=5;g.stroke();
+ g.fillStyle='#ef9b57';g.font='900 24px sans-serif';g.fillText('BETTER PART',1060,475);
+ arrow(565,560,290,520,'#69d391','GO HOME');
+ arrow(715,560,985,520,'#e89b4b','PUSH DEEPER');
+}
+
+function drawPayoff(p){
+ drawGarage(1);
+ if(p>.42){
+   g.fillStyle='#071019d8';g.fillRect(0,0,W,H);
+   mech(640,390,1.38,2,0);
+   g.fillStyle='#ecf2f6';g.font='900 38px sans-serif';g.textAlign='center';g.fillText('BUILD. RISK. RETURN. REBUILD.',640,110);
+   g.fillStyle='#8fe7f1';g.font='700 20px sans-serif';g.fillText('SAME MECH. MORE VALUE. MORE TO LOSE.',640,650);
+ }
+}
+
+function drawTrailer(t){
+ const sec=t%12;
+ phase.textContent='12 SECOND PRODUCT LOOP';
+ badge.style.display='none';tagline.textContent='';
+ if(sec<2){drawGarage(sec/2);step.textContent='Visual 2 / 2 · BUILD'}
+ else if(sec<5){drawDeploy((sec-2)/3);step.textContent='Visual 2 / 2 · DEPLOY'}
+ else if(sec<8){drawLoot((sec-5)/3);step.textContent='Visual 2 / 2 · VALUE'}
+ else if(sec<10){drawFork((sec-8)/2);step.textContent='Visual 2 / 2 · DECIDE'}
+ else{drawPayoff((sec-10)/2);step.textContent='Visual 2 / 2 · REBUILD'}
+}
+
+function loop(ts){
+ if(mode!=='trailer')return;
+ const elapsed=(ts-start)/1000; drawTrailer(elapsed);
+ if(elapsed>=12){
+   cancelAnimationFrame(raf);mode='done';drawPayoff(1);phase.textContent='PRODUCT LOOP COMPLETE';step.textContent='Survey';
+   replayBtn.disabled=false;playBtn.textContent='もう一度見る';survey.style.display='block';
+   desc.innerHTML='<b>Steam短文：</b> Build one mech part by part, take it into hostile zones, and risk the machine you\'ve built for better hardware. Extract alive, rebuild, and push deeper in a compact single-player PvE extraction shooter.';
+   survey.scrollIntoView({behavior:'smooth',block:'start'});
+   return;
+ }
+ raf=requestAnimationFrame(loop);
+}
+
+function play(){
+ viewCount++; mode='trailer'; survey.style.display='none'; replayBtn.disabled=true; playBtn.disabled=true;
+ start=performance.now();raf=requestAnimationFrame(loop);
+ setTimeout(()=>{playBtn.disabled=false},12500);
+}
+playBtn.addEventListener('click',play);replayBtn.addEventListener('click',play);
+
+function id(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():'m-'+Date.now()+'-'+Math.random().toString(36).slice(2)}
+const TEST_ID=id();
+function val(x){return document.getElementById(x).value.trim()}
+function intent(){const e=document.querySelector('input[name="intent"]:checked');return e?e.value:''}
+function payload(){return{
+  test_id:TEST_ID,build:BUILD,views:viewCount,device:/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?'mobile':'desktop',
+  q1_game:val('q1'),q2_appeal:val('q2'),q3_difference:val('q3'),q4_risk:val('q4'),q5_intent:intent(),q6_reason:val('q6'),
+  submitted_at:new Date().toISOString()
+}}
+function resultText(){
+ const p=payload();
+ return `PROJECT FRAME PRODUCT TEST
+test_id: ${p.test_id}
+views: ${p.views}
+1. どんなゲーム？ ${p.q1_game}
+2. 一番やりたい点: ${p.q2_appeal}
+3. 違い: ${p.q3_difference}
+4. 失うもの: ${p.q4_risk}
+5. 行動: ${p.q5_intent}
+6. 理由: ${p.q6_reason}`;
+}
+const status=document.getElementById('status'),fallback=document.getElementById('fallback');
+async function submit(){
+ const p=payload();
+ if(!p.q1_game||!p.q2_appeal||!p.q3_difference||!p.q4_risk||!p.q5_intent||!p.q6_reason){status.textContent='すべて回答してください。';return}
+ document.getElementById('submitBtn').disabled=true;status.textContent='送信しています…';
+ let beacon=false;try{beacon=navigator.sendBeacon&&navigator.sendBeacon(COLLECTOR_URL,JSON.stringify(p))}catch(_){}
+ try{
+   await fetch(COLLECTOR_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p),keepalive:true});
+   status.textContent='送信しました。ありがとうございました。';
+ }catch(_){
+   if(beacon)status.textContent='送信を受け付けました。ありがとうございました。';
+   else{status.textContent='自動送信できませんでした。回答をコピーして送ってください。';fallback.style.display='block';fallback.value=resultText()}
+ }
+}
+document.getElementById('submitBtn').addEventListener('click',submit);
+document.getElementById('copyBtn').addEventListener('click',async()=>{
+ const t=resultText();fallback.value=t;
+ try{await navigator.clipboard.writeText(t);status.textContent='回答をコピーしました。'}catch(_){fallback.style.display='block';fallback.select()}
+});
+
+resize();drawHero();
+})();
+</script>
+</body>
+</html>
