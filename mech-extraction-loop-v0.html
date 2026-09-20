@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>MECH EXTRACTION CONNECTION TEST v0</title>
+<style>
+*{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0f14;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;background:#10161d}
+#hud{position:fixed;z-index:5;top:max(8px,env(safe-area-inset-top));left:8px;right:8px;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+.card{background:#0b0f14dd;border:1px solid #ffffff24;border-radius:9px;padding:7px 9px;font-size:11px;line-height:1.35}
+#msg{position:fixed;z-index:6;top:58px;left:50%;transform:translateX(-50%);max-width:82vw;text-align:center;background:#111a24e8;border:1px solid #ffffff24;border-radius:10px;padding:8px 11px;font-size:12px;pointer-events:none}
+#joy{position:fixed;z-index:8;left:18px;bottom:max(20px,calc(env(safe-area-inset-bottom) + 12px));width:126px;height:126px;border-radius:50%;border:2px solid #65717d;background:#18212acc;touch-action:none}
+#knob{position:absolute;width:44px;height:44px;left:39px;top:39px;border-radius:50%;background:#dbe2e8aa}
+.ctrl{position:fixed;z-index:8;border-radius:50%;border:2px solid #7b8793;background:#d7e0e82b;color:#fff;font-weight:800;touch-action:none}
+#fire{right:20px;bottom:max(26px,calc(env(safe-area-inset-bottom) + 18px));width:98px;height:98px;font-size:15px}
+#dash{right:128px;bottom:max(46px,calc(env(safe-area-inset-bottom) + 38px));width:68px;height:68px;font-size:11px;display:none}
+.overlay{position:fixed;z-index:20;inset:0;background:#071019e8;display:none;align-items:center;justify-content:center;padding:18px}
+.panel{width:min(520px,94vw);max-height:90vh;overflow:auto;background:#101923;border:1px solid #ffffff2a;border-radius:16px;padding:18px}
+h1,h2,p{margin:0 0 10px} h1{font-size:21px} h2{font-size:17px}
+.small{font-size:12px;color:#c4ccd4;line-height:1.5}
+.part{border:1px solid #d49a54;border-radius:12px;padding:12px;margin:12px 0;background:#d49a5412}
+button.ui{width:100%;min-height:46px;border:1px solid #6f7b86;border-radius:10px;background:#202b35;color:#fff;font-size:15px;font-weight:700;margin-top:8px}
+button.ui.primary{background:#e6edf3;color:#101820;border-color:#e6edf3}
+button.ui:disabled{opacity:.35}
+#eval .row{display:grid;grid-template-columns:1fr repeat(3,46px);gap:6px;align-items:center;margin:10px 0}
+#eval .choice{height:40px;border:1px solid #6d7882;border-radius:8px;background:#202a34;color:white}
+#eval .choice.on{background:#eef3f7;color:#111;font-weight:800}
+#result{margin-top:12px;font-size:13px;line-height:1.5;color:#d8e0e7}
+@media(orientation:portrait){#msg{top:72px}.card{font-size:10px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div class="card" id="status">HP 100</div>
+  <div class="card" id="loot">未確保パーツ: なし</div>
+</div>
+<div id="msg">青いコンテナを探してください</div>
+<div id="joy"><div id="knob"></div></div>
+<button id="fire" class="ctrl">FIRE</button>
+<button id="dash" class="ctrl">DASH</button>
+
+<div id="start" class="overlay" style="display:flex">
+  <div class="panel">
+    <h1>MECH EXTRACTION TEST v0</h1>
+    <p>今回見るのは1つだけです。</p>
+    <p><b>「欲しいパーツを拾う → 持ち帰る → 組み替える → また出撃したくなる」か。</b></p>
+    <p class="small">左スティックで移動、FIREで射撃。最初の青いコンテナには必ず機体の操作感が変わるパーツが入っています。破壊される前に帰還すれば確保できます。</p>
+    <button class="ui primary" id="startBtn">出撃</button>
+  </div>
+</div>
+
+<div id="garage" class="overlay">
+  <div class="panel">
+    <h2>帰還成功</h2>
+    <p class="small">持ち帰ったパーツが格納庫に追加されました。</p>
+    <div class="part">
+      <b>高出力レッグユニット</b>
+      <p class="small">加速・最高速アップ。短距離DASHを使用可能。脚部の外観も変化。</p>
+    </div>
+    <button class="ui primary" id="equipBtn">装備する</button>
+    <button class="ui" id="redeployBtn">この機体で再出撃</button>
+  </div>
+</div>
+
+<div id="fail" class="overlay">
+  <div class="panel">
+    <h2>機体破壊</h2>
+    <p>未確保のパーツは失いました。</p>
+    <p class="small">今回のテストでは、出撃前から持っていた機体そのものは失いません。</p>
+    <button class="ui primary" id="retryBtn">もう一度出撃</button>
+  </div>
+</div>
+
+<div id="eval" class="overlay">
+  <div class="panel">
+    <h2>3点だけ評価</h2>
+    <div class="row"><span>拾った瞬間、持ち帰りたいと思った？</span><button class="choice">○</button><button class="choice">△</button><button class="choice">×</button></div>
+    <div class="row"><span>帰還後、組み替えるのが楽しみだった？</span><button class="choice">○</button><button class="choice">△</button><button class="choice">×</button></div>
+    <div class="row"><span>組み替え後、もう一度出撃したくなった？</span><button class="choice">○</button><button class="choice">△</button><button class="choice">×</button></div>
+    <div id="result">選んだら、このチャットで「○ / △ / ○」のように教えてください。</div>
+  </div>
+</div>
+
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let W=0,H=0,dpr=1;
+function resize(){W=innerWidth;H=innerHeight;dpr=Math.min(devicePixelRatio||1,2);c.width=W*dpr;c.height=H*dpr;c.style.width=W+'px';c.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)}
+resize();addEventListener('resize',resize);
+
+const hud=document.getElementById('status'),lootEl=document.getElementById('loot'),msg=document.getElementById('msg');
+const joy=document.getElementById('joy'),knob=document.getElementById('knob'),fireBtn=document.getElementById('fire'),dashBtn=document.getElementById('dash');
+
+let mode='idle',px=0,py=150,vx=0,vy=0,a=-Math.PI/2,hp=100,joyX=0,joyY=0,shooting=false,lastShot=0,flash=0;
+let partHeld=false,partSecured=false,partEquipped=false,deepLoot=false,deepVisited=false,dashCd=0,secondTimer=0;
+let shots=[],enemies=[];
+const cache1={x:0,y:-250};
+const cache2={x:260,y:-340};
+const extract={x:0,y:190,r:58};
+const blocks=[[-190,-80,90,70],[185,-105,105,75],[-170,130,80,80],[180,120,90,85],[50,-390,110,70]];
+
+function setMsg(t){msg.textContent=t}
+function resetEnemies(second=false){
+  enemies=[];
+  const pts=second?[[150,-100],[-160,-80],[210,-250],[-220,-270],[0,-330],[260,40],[-280,20]]:[[150,-120],[-150,-130],[230,-270],[-230,-300],[80,-380]];
+  pts.forEach((p,i)=>enemies.push({x:p[0],y:p[1],hp:second?5:4,cd:.5+i*.12}));
+}
+function resetRun(){
+  mode='run1';px=0;py=150;vx=vy=0;a=-Math.PI/2;hp=100;partHeld=false;deepLoot=false;deepVisited=false;dashCd=0;shots=[];resetEnemies(false);
+  dashBtn.style.display='none';lootEl.textContent='未確保パーツ: なし';setMsg('青いコンテナを探してください');syncHud();
+}
+function secondRun(){
+  mode='run2';px=0;py=150;vx=vy=0;a=-Math.PI/2;hp=100;shots=[];secondTimer=0;resetEnemies(true);
+  dashBtn.style.display=partEquipped?'block':'none';lootEl.textContent=partEquipped?'装備中: 高出力レッグユニット':'装備中: 標準脚';
+  setMsg(partEquipped?'新しい脚の違いを感じながら戦ってください':'そのままの構成で再出撃');syncHud();
+}
+function syncHud(){hud.textContent='HP '+Math.max(0,Math.round(hp))+(deepLoot?' / 追加サルベージ確保中':'')}
+function screen(wx,wy){return[W/2+wx-px,H/2+wy-py]}
+function rr(cx,cy,w,h,r){ctx.beginPath();ctx.roundRect(cx-w/2,cy-h/2,w,h,r)}
+function dist(ax,ay,bx,by){return Math.hypot(ax-bx,ay-by)}
+
+function drawMech(){
+  ctx.save();ctx.translate(W/2,H/2);ctx.rotate(a+Math.PI/2);
+  ctx.fillStyle='#0007';ctx.beginPath();ctx.ellipse(0,28,31,13,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=partEquipped?'#b86f35':'#35414c';
+  rr(-18,22,15,46,5);ctx.fill();rr(18,22,15,46,5);ctx.fill();
+  if(partEquipped){ctx.fillStyle='#e3a562';rr(-18,45,27,11,4);ctx.fill();rr(18,45,27,11,4);ctx.fill()}
+  else{ctx.fillStyle='#95a2ad';rr(-18,44,24,10,4);ctx.fill();rr(18,44,24,10,4);ctx.fill()}
+  ctx.fillStyle='#a4afb9';rr(0,-5,64,46,8);ctx.fill();
+  ctx.fillStyle='#d0873c';rr(0,-28,25,13,4);ctx.fill();
+  ctx.fillStyle='#d0873c';rr(51,-4,56,14,4);ctx.fill();ctx.fillStyle='#303943';ctx.fillRect(72,-8,28,8);
+  if(flash>0){ctx.fillStyle='rgba(255,195,100,'+flash+')';ctx.beginPath();ctx.arc(104,-4,8,0,Math.PI*2);ctx.fill()}
+  ctx.restore();
+}
+
+function drawWorld(){
+  ctx.fillStyle='#10161d';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#24303a';ctx.lineWidth=1;const st=42,ox=((W/2-px)%st+st)%st,oy=((H/2-py)%st+st)%st;
+  for(let i=ox;i<W;i+=st){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke()}
+  for(let j=oy;j<H;j+=st){ctx.beginPath();ctx.moveTo(0,j);ctx.lineTo(W,j);ctx.stroke()}
+  ctx.fillStyle='#303b46';blocks.forEach(b=>{const p=screen(b[0],b[1]);rr(p[0],p[1],b[2],b[3],7);ctx.fill()});
+
+  if(mode==='run1'){
+    if(!partHeld&&!partSecured){
+      let p=screen(cache1.x,cache1.y);ctx.fillStyle='#4aa3ff';rr(p[0],p[1],42,34,6);ctx.fill();ctx.fillStyle='#d7ecff';ctx.font='11px sans-serif';ctx.fillText('PART',p[0]-15,p[1]-24);
+    }
+    if(partHeld){
+      let e=screen(extract.x,extract.y);ctx.strokeStyle='#66e39b';ctx.lineWidth=4;ctx.beginPath();ctx.arc(e[0],e[1],extract.r,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle='#9cffbd';ctx.font='12px sans-serif';ctx.fillText('EXTRACT',e[0]-27,e[1]-68);
+      if(!deepVisited){
+        let p=screen(cache2.x,cache2.y);ctx.fillStyle='#d99a45';rr(p[0],p[1],44,34,6);ctx.fill();ctx.fillStyle='#ffd89b';ctx.fillText('DEEP',p[0]-15,p[1]-24);
+      }
+    }
+  }
+
+  enemies.forEach(e=>{const p=screen(e.x,e.y);ctx.fillStyle='#8a4040';rr(p[0],p[1],36,28,5);ctx.fill();ctx.fillStyle='#ffb26b';ctx.fillRect(p[0]-9,p[1]-3,18,6)});
+  ctx.fillStyle='#ffc26b';shots.forEach(s=>{const p=screen(s.x,s.y);ctx.beginPath();ctx.arc(p[0],p[1],3,0,Math.PI*2);ctx.fill()});
+  drawMech();
+  ctx.fillStyle='#ffffffaa';ctx.font='11px sans-serif';ctx.fillText(mode==='run2'?(partEquipped?'HIGH-OUTPUT LEGS':'STANDARD LEGS'):'SORTIE',12,H-10);
+}
+
+function fire(now){
+  if(now-lastShot<.15)return;lastShot=now;
+  const dx=Math.cos(a),dy=Math.sin(a),sp=760;
+  shots.push({x:px+dx*62,y:py+dy*62,vx:dx*sp,vy:dy*sp,life:1.2,d:1});
+  vx-=dx*7;vy-=dy*7;flash=1;
+  if(navigator.vibrate)navigator.vibrate(4);
+}
+function doDash(){
+  if(!partEquipped||dashCd>0||mode!=='run2')return;
+  const dx=Math.cos(a),dy=Math.sin(a);vx+=dx*300;vy+=dy*300;dashCd=1.2;
+  if(navigator.vibrate)navigator.vibrate(12);
+}
+
+function update(dt,t){
+  if(mode!=='run1'&&mode!=='run2')return;
+  const upgraded=mode==='run2'&&partEquipped;
+  const acc=upgraded?610:470,max=upgraded?305:235,turn=upgraded?7.5:6.4,drag=upgraded?6.3:5.4;
+  const mag=Math.min(1,Math.hypot(joyX,joyY));
+  if(mag>.05){
+    let target=Math.atan2(joyY,joyX),d=((target-a+Math.PI*3)%(Math.PI*2))-Math.PI;
+    a+=d*Math.min(1,turn*dt);
+    let dx=Math.cos(a),dy=Math.sin(a);vx+=dx*acc*mag*dt;vy+=dy*acc*mag*dt;
+    let s=Math.hypot(vx,vy);if(s>max){vx=vx/s*max;vy=vy/s*max}
+  }else{let f=Math.max(0,1-drag*dt);vx*=f;vy*=f}
+  px+=vx*dt;py+=vy*dt;
+  if(shooting)fire(t);
+  dashCd=Math.max(0,dashCd-dt);flash=Math.max(0,flash-dt*6);
+
+  for(let i=shots.length-1;i>=0;i--){
+    let s=shots[i];s.x+=s.vx*dt;s.y+=s.vy*dt;s.life-=dt;
+    for(let e of enemies){if(e.hp>0&&dist(s.x,s.y,e.x,e.y)<25){e.hp-=s.d;s.life=0;break}}
+    if(s.life<=0)shots.splice(i,1);
+  }
+  enemies=enemies.filter(e=>e.hp>0);
+  enemies.forEach(e=>{
+    const dx=px-e.x,dy=py-e.y,l=Math.hypot(dx,dy)||1;
+    if(l<260){e.x+=dx/l*52*dt;e.y+=dy/l*52*dt}
+    if(l<35){hp-=18*dt}
+  });
+  if(hp<=0){mode='fail';partHeld=false;lootEl.textContent='未確保パーツ: 失失';document.getElementById('fail').style.display='flex';return}
+
+  if(mode==='run1'){
+    if(!partHeld&&!partSecured&&dist(px,py,cache1.x,cache1.y)<42){
+      partHeld=true;lootEl.textContent='未確保パーツ: 高出力レッグ';setMsg('高出力レッグ入手。帰還して確保するか、奥へ進むか。');
+      if(navigator.vibrate)navigator.vibrate([20,40,20]);
+    }
+    if(partHeld&&!deepVisited&&dist(px,py,cache2.x,cache2.y)<42){
+      deepVisited=true;deepLoot=true;setMsg('追加サルベージ獲得。ここで破壊されると全部失います。');syncHud();
+    }
+    if(partHeld&&dist(px,py,extract.x,extract.y)<extract.r){
+      partSecured=true;partHeld=false;mode='garage';lootEl.textContent='確保済み: 高出力レッグ';document.getElementById('garage').style.display='flex';setMsg('帰還成功');
+    }
+  }else if(mode==='run2'){
+    secondTimer+=dt;
+    if(secondTimer>22||enemies.length===0){mode='eval';document.getElementById('eval').style.display='flex';setMsg('テスト終了');}
+  }
+  syncHud();
+}
+
+let prev=performance.now();
+function loop(ts){const dt=Math.min(.033,(ts-prev)/1000);prev=ts;update(dt,ts/1000);drawWorld();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+
+let jid=null;
+function jset(t){const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=t.clientX-cx,dy=t.clientY-cy,m=40,l=Math.hypot(dx,dy)||1;if(l>m){dx*=m/l;dy*=m/l}joyX=dx/m;joyY=dy/m;knob.style.transform='translate('+dx+'px,'+dy+'px)'}
+joy.addEventListener('touchstart',e=>{e.preventDefault();const t=e.changedTouches[0];jid=t.identifier;jset(t)},{passive:false});
+joy.addEventListener('touchmove',e=>{e.preventDefault();for(const t of e.changedTouches)if(t.identifier===jid)jset(t)},{passive:false});
+function jend(e){e.preventDefault();for(const t of e.changedTouches)if(t.identifier===jid){jid=null;joyX=joyY=0;knob.style.transform='translate(0,0)'}}
+joy.addEventListener('touchend',jend,{passive:false});joy.addEventListener('touchcancel',jend,{passive:false});
+
+fireBtn.addEventListener('touchstart',e=>{e.preventDefault();shooting=true},{passive:false});
+fireBtn.addEventListener('touchend',e=>{e.preventDefault();shooting=false},{passive:false});
+fireBtn.addEventListener('touchcancel',e=>{e.preventDefault();shooting=false},{passive:false});
+dashBtn.addEventListener('touchstart',e=>{e.preventDefault();doDash()},{passive:false});
+
+document.getElementById('startBtn').onclick=()=>{document.getElementById('start').style.display='none';resetRun()};
+document.getElementById('retryBtn').onclick=()=>{document.getElementById('fail').style.display='none';resetRun()};
+document.getElementById('equipBtn').onclick=()=>{partEquipped=true;document.getElementById('equipBtn').textContent='装備済み';document.getElementById('equipBtn').disabled=true;document.getElementById('redeployBtn').classList.add('primary')};
+document.getElementById('redeployBtn').onclick=()=>{document.getElementById('garage').style.display='none';secondRun()};
+
+document.querySelectorAll('#eval .row').forEach(r=>r.querySelectorAll('.choice').forEach(b=>b.onclick=()=>{r.querySelectorAll('.choice').forEach(z=>z.classList.remove('on'));b.classList.add('on')}));
+
+document.addEventListener('touchmove',e=>{if(e.target===c)e.preventDefault()},{passive:false});
+</script>
+</body>
+</html>
