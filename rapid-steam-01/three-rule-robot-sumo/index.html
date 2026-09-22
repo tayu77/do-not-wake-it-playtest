@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Three-Rule Robot Sumo — Core Test</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;min-height:100%;background:#111318;color:#f3f4f6;-webkit-text-size-adjust:100%}
+body{min-height:100dvh;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+.wrap{max-width:1100px;margin:0 auto;padding:14px}
+h1{font-size:20px;line-height:1.2;margin:0 0 6px}
+.sub{color:#aeb4bf;font-size:13px;line-height:1.4;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:12px}
+.card{background:#1a1e25;border:1px solid #303640;border-radius:14px;padding:12px;min-width:0}
+.canvasWrap{width:100%;max-width:700px;margin:0 auto}
+canvas{display:block;width:100%;height:auto;aspect-ratio:1/1;background:#0b0d11;border-radius:12px;touch-action:none}
+h2{font-size:15px;margin:0 0 10px}
+label{display:block;font-size:12px;color:#aeb4bf;margin-top:10px;margin-bottom:5px}
+select,button{width:100%;min-height:44px;border:1px solid #3a424e;background:#242a33;color:#fff;border-radius:10px;padding:10px;font-size:16px}
+button{cursor:pointer;font-weight:700;-webkit-tap-highlight-color:transparent}
+button.primary{background:#f1f3f5;color:#111;border-color:#f1f3f5;margin-top:12px}
+button:disabled{opacity:.5}
+.status{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.stat{background:#12161c;border-radius:10px;padding:9px;min-width:0}
+.k{font-size:10px;color:#9199a6;text-transform:uppercase;letter-spacing:.08em}
+.v{font-size:14px;margin-top:4px;min-height:20px;overflow-wrap:anywhere}
+.note{font-size:12px;color:#aeb4bf;line-height:1.45}
+.log{height:132px;overflow:auto;-webkit-overflow-scrolling:touch;background:#101319;border-radius:10px;padding:8px;font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:#c8ced8}
+.pill{display:inline-block;border:1px solid #424a58;border-radius:999px;padding:4px 7px;font-size:11px;margin:2px 3px 2px 0;color:#cbd2dc}
+@media(max-width:820px){
+  .grid{grid-template-columns:1fr}
+  .wrap{padding:10px}
+  .card{padding:10px}
+  h1{font-size:18px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Three-Rule Robot Sumo — Core Test</h1>
+  <div class="sub">Pick only three behavior rules. Press FIGHT. During the bout you cannot control the bot.</div>
+  <div class="grid">
+    <div class="card">
+      <div class="canvasWrap"><canvas id="c" width="700" height="700"></canvas></div>
+      <div class="status">
+        <div class="stat"><div class="k">Your active rule</div><div id="pRule" class="v">—</div></div>
+        <div class="stat"><div class="k">Opponent active rule</div><div id="oRule" class="v">—</div></div>
+        <div class="stat"><div class="k">Time</div><div id="time" class="v">10.0</div></div>
+        <div class="stat"><div class="k">Result</div><div id="result" class="v">Ready</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Your behavior priority</h2>
+      <div class="note">Rule 1 has highest priority. The first rule whose condition is true controls the robot.</div>
+      <label for="r1">1 — highest priority</label><select id="r1"></select>
+      <label for="r2">2</label><select id="r2"></select>
+      <label for="r3">3</label><select id="r3"></select>
+      <button id="fight" class="primary">FIGHT</button>
+      <button id="same" style="margin-top:8px">REMATCH SAME SETUP</button>
+
+      <h2 style="margin-top:18px">Rule cards</h2>
+      <div id="cards"></div>
+
+      <h2 style="margin-top:18px">Fixed opponent</h2>
+      <div class="note">EDGE GUARD → RAM → HUNT. Same setup every bout so changes in your bot are easier to read.</div>
+
+      <h2 style="margin-top:18px">Bout log</h2>
+      <div id="log" class="log"></div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+'use strict';
+var canvas=document.getElementById('c');
+var ctx=canvas.getContext('2d');
+var pRuleEl=document.getElementById('pRule');
+var oRuleEl=document.getElementById('oRule');
+var timeEl=document.getElementById('time');
+var resultEl=document.getElementById('result');
+var fightBtn=document.getElementById('fight');
+var sameBtn=document.getElementById('same');
+var cardsEl=document.getElementById('cards');
+var logEl=document.getElementById('log');
+var r1=document.getElementById('r1');
+var r2=document.getElementById('r2');
+var r3=document.getElementById('r3');
+
+if(!ctx){
+  resultEl.textContent='Canvas unavailable';
+  return;
+}
+
+var W=700,H=700,CX=350,CY=350,R=285,BOT_R=31;
+var rules=[
+{id:'edge',name:'EDGE GUARD',desc:'IF near the edge → turn toward center + reverse briefly'},
+{id:'push',name:'CONTACT PUSH',desc:'IF touching rival → maximum forward push'},
+{id:'ram',name:'RAM',desc:'IF rival is inside front sensor → charge straight'},
+{id:'hunt',name:'HUNT',desc:'IF rival exists → turn toward rival and advance'},
+{id:'sidestep',name:'SIDESTEP',desc:'IF rival is close but not centered → cut sideways around it'},
+{id:'search',name:'SEARCH SPIN',desc:'IF front sensor sees nothing → rotate to search'}
+];
+var selects=[r1,r2,r3];
+for(var i=0;i<selects.length;i++){
+  for(var j=0;j<rules.length;j++){
+    var opt=document.createElement('option');
+    opt.value=rules[j].id;
+    opt.textContent=rules[j].name;
+    selects[i].appendChild(opt);
+  }
+}
+r1.value='edge';r2.value='ram';r3.value='hunt';
+
+var cardsHtml='';
+for(var c=0;c<rules.length;c++){
+  cardsHtml+='<span class="pill">'+rules[c].name+'</span><div class="note" style="margin:1px 0 7px">'+rules[c].desc+'</div>';
+}
+cardsEl.innerHTML=cardsHtml;
+
+var player,enemy,running=false,startT=0,lastT=0,lastPRule='',lastORule='';
+var opponentRules=['edge','ram','hunt'];
+var logLines=[];
+
+function addLog(s){
+  logLines.unshift(s);
+  if(logLines.length>18)logLines.pop();
+  logEl.innerHTML=logLines.join('<br>');
+}
+function resetBots(){
+  player={x:CX-105,y:CY+45,vx:0,vy:0,a:-0.18,rule:'idle'};
+  enemy={x:CX+105,y:CY-45,vx:0,vy:0,a:Math.PI-0.18,rule:'idle'};
+  pRuleEl.textContent='—';oRuleEl.textContent='—';timeEl.textContent='10.0';resultEl.textContent='Ready';
+}
+function norm(a){while(a>Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;return a}
+function state(bot,other){
+  var dx=other.x-bot.x,dy=other.y-bot.y,d=Math.sqrt(dx*dx+dy*dy);
+  var target=Math.atan2(dy,dx),bearing=norm(target-bot.a);
+  var ex=bot.x-CX,ey=bot.y-CY,edgeDist=R-Math.sqrt(ex*ex+ey*ey);
+  return {d:d,target:target,bearing:bearing,edgeDist:edgeDist,contact:d<BOT_R*2+2,seen:Math.abs(bearing)<0.62};
+}
+function choose(bot,other,priority){
+  var s=state(bot,other);
+  for(var k=0;k<priority.length;k++){
+    var id=priority[k];
+    if(id==='edge'&&s.edgeDist<72)return{id:id,s:s};
+    if(id==='push'&&s.contact)return{id:id,s:s};
+    if(id==='ram'&&s.seen)return{id:id,s:s};
+    if(id==='hunt')return{id:id,s:s};
+    if(id==='sidestep'&&s.d<180&&Math.abs(s.bearing)>0.25)return{id:id,s:s};
+    if(id==='search'&&!s.seen)return{id:id,s:s};
+  }
+  return{id:'idle',s:s};
+}
+function control(bot,other,priority,dt){
+  var ch=choose(bot,other,priority),s=ch.s,id=ch.id,thrust=0,turn=0;
+  if(id==='edge'){
+    var toward=norm(Math.atan2(CY-bot.y,CX-bot.x)-bot.a);
+    turn=(toward===0?0:(toward>0?1:-1))*3.4;thrust=-150;
+  }else if(id==='push'){thrust=360;turn=(s.bearing===0?0:(s.bearing>0?1:-1))*0.7;
+  }else if(id==='ram'){thrust=330;turn=(s.bearing===0?0:(s.bearing>0?1:-1))*1.0;
+  }else if(id==='hunt'){thrust=185;turn=(s.bearing===0?0:(s.bearing>0?1:-1))*2.6;
+  }else if(id==='sidestep'){thrust=155;turn=-(s.bearing===0?0:(s.bearing>0?1:-1))*3.1;
+  }else if(id==='search'){thrust=65;turn=3.0;
+  }else{thrust=25;}
+  bot.a=norm(bot.a+turn*dt);
+  bot.vx+=Math.cos(bot.a)*thrust*dt;
+  bot.vy+=Math.sin(bot.a)*thrust*dt;
+  bot.rule=id;
+}
+function physics(dt){
+  control(player,enemy,[r1.value,r2.value,r3.value],dt);
+  control(enemy,player,opponentRules,dt);
+
+  var arr=[player,enemy];
+  for(var i=0;i<arr.length;i++){
+    var b=arr[i],speed=Math.sqrt(b.vx*b.vx+b.vy*b.vy),max=235;
+    if(speed>max){b.vx*=max/speed;b.vy*=max/speed}
+    b.vx*=Math.pow(0.985,dt*60);b.vy*=Math.pow(0.985,dt*60);
+    b.x+=b.vx*dt;b.y+=b.vy*dt;
+  }
+
+  var dx=enemy.x-player.x,dy=enemy.y-player.y,d=Math.sqrt(dx*dx+dy*dy);
+  if(d<BOT_R*2&&d>0.001){
+    var nx=dx/d,ny=dy/d,over=BOT_R*2-d;
+    player.x-=nx*over*.5;player.y-=ny*over*.5;enemy.x+=nx*over*.5;enemy.y+=ny*over*.5;
+    var rel=(enemy.vx-player.vx)*nx+(enemy.vy-player.vy)*ny;
+    var impulse=Math.max(0,130-rel)*0.56;
+    var pAlign=Math.max(0,Math.cos(norm(Math.atan2(dy,dx)-player.a)));
+    var eAlign=Math.max(0,Math.cos(norm(Math.atan2(-dy,-dx)-enemy.a)));
+    var bias=(pAlign-eAlign)*85;
+    player.vx-=nx*(impulse-bias)*dt*7;player.vy-=ny*(impulse-bias)*dt*7;
+    enemy.vx+=nx*(impulse-bias)*dt*7;enemy.vy+=ny*(impulse-bias)*dt*7;
+  }
+}
+function out(b){
+  var dx=b.x-CX,dy=b.y-CY;
+  return Math.sqrt(dx*dx+dy*dy)>R-BOT_R*0.2;
+}
+function nameRule(id){
+  for(var i=0;i<rules.length;i++)if(rules[i].id===id)return rules[i].name;
+  return 'NO MATCH';
+}
+function finish(msg){
+  running=false;resultEl.textContent=msg;fightBtn.disabled=false;sameBtn.disabled=false;
+  addLog('<b>'+msg+'</b> — YOU:'+nameRule(player.rule)+' / CPU:'+nameRule(enemy.rule));
+}
+function roundRectPath(x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+function drawBot(b,fill,label){
+  ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.a);
+  ctx.fillStyle=fill;ctx.strokeStyle='#fff';ctx.lineWidth=3;
+  roundRectPath(-32,-24,64,48,9);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#111';ctx.fillRect(15,-19,17,38);
+  ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(24,0);ctx.lineTo(52,0);ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle=label==='YOU'?'#111':'#fff';ctx.font='bold 16px -apple-system,system-ui';ctx.textAlign='center';
+  ctx.fillText(label,b.x,b.y+5);
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#11161c';ctx.fillRect(0,0,W,H);
+  ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);ctx.fillStyle='#d5d7da';ctx.fill();
+  ctx.beginPath();ctx.arc(CX,CY,R-10,0,Math.PI*2);ctx.fillStyle='#232831';ctx.fill();
+  ctx.beginPath();ctx.arc(CX,CY,45,0,Math.PI*2);ctx.strokeStyle='#596273';ctx.lineWidth=2;ctx.stroke();
+  ctx.strokeStyle='#596273';ctx.beginPath();ctx.moveTo(CX,CY-R+10);ctx.lineTo(CX,CY+R-10);ctx.stroke();
+  drawBot(player,'#e9edf2','YOU');drawBot(enemy,'#6e7785','CPU');
+}
+function tick(t){
+  if(!lastT)lastT=t;
+  var dt=Math.min(0.025,(t-lastT)/1000);lastT=t;
+  if(running){
+    physics(dt);
+    var elapsed=(t-startT)/1000,remain=Math.max(0,10-elapsed);
+    timeEl.textContent=remain.toFixed(1);
+    pRuleEl.textContent=nameRule(player.rule);oRuleEl.textContent=nameRule(enemy.rule);
+    if(player.rule!==lastPRule){lastPRule=player.rule;if(player.rule!=='idle')addLog('YOU → '+nameRule(player.rule))}
+    if(enemy.rule!==lastORule)lastORule=enemy.rule;
+    var po=out(player),eo=out(enemy);
+    if(po&&eo)finish('DOUBLE RING-OUT');
+    else if(po)finish('CPU WINS');
+    else if(eo)finish('YOU WIN');
+    else if(remain<=0){
+      var pd=Math.hypot(player.x-CX,player.y-CY),ed=Math.hypot(enemy.x-CX,enemy.y-CY);
+      finish(pd<ed?'YOU WIN BY POSITION':ed<pd?'CPU WINS BY POSITION':'DRAW');
+    }
+  }
+  draw();
+  window.requestAnimationFrame(tick);
+}
+function start(){
+  resetBots();lastPRule='';lastORule='';logLines=[];logEl.innerHTML='';
+  startT=performance.now();lastT=startT;running=true;fightBtn.disabled=true;sameBtn.disabled=true;resultEl.textContent='Fighting';
+  addLog('Rules: '+[nameRule(r1.value),nameRule(r2.value),nameRule(r3.value)].join(' → '));
+}
+fightBtn.addEventListener('click',start);
+sameBtn.addEventListener('click',start);
+resetBots();
+window.requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
