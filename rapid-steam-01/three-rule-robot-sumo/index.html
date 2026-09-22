@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Three-Rule Robot Sumo — Core Test</title>
+<title>3ルール・ロボット相撲 — コアテスト</title>
 <style>
 :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color-scheme:dark}
 *{box-sizing:border-box}
@@ -40,35 +40,35 @@ button:disabled{opacity:.5}
 </head>
 <body>
 <div class="wrap">
-  <h1>Three-Rule Robot Sumo — Core Test</h1>
-  <div class="sub">Pick only three behavior rules. Press FIGHT. During the bout you cannot control the bot.</div>
+  <h1>3ルール・ロボット相撲 — コアテスト</h1>
+  <div class="sub">行動ルールを3つだけ選びます。「試合開始」を押した後は、ロボットを直接操作できません。</div>
   <div class="grid">
     <div class="card">
       <div class="canvasWrap"><canvas id="c" width="700" height="700"></canvas></div>
       <div class="status">
-        <div class="stat"><div class="k">Your active rule</div><div id="pRule" class="v">—</div></div>
-        <div class="stat"><div class="k">Opponent active rule</div><div id="oRule" class="v">—</div></div>
-        <div class="stat"><div class="k">Time</div><div id="time" class="v">10.0</div></div>
-        <div class="stat"><div class="k">Result</div><div id="result" class="v">Ready</div></div>
+        <div class="stat"><div class="k">自分の発動中ルール</div><div id="pRule" class="v">—</div></div>
+        <div class="stat"><div class="k">相手の発動中ルール</div><div id="oRule" class="v">—</div></div>
+        <div class="stat"><div class="k">残り時間</div><div id="time" class="v">10.0</div></div>
+        <div class="stat"><div class="k">結果</div><div id="result" class="v">準備完了</div></div>
       </div>
     </div>
 
     <div class="card">
-      <h2>Your behavior priority</h2>
-      <div class="note">Rule 1 has highest priority. The first rule whose condition is true controls the robot.</div>
-      <label for="r1">1 — highest priority</label><select id="r1"></select>
+      <h2>自分の行動優先順位</h2>
+      <div class="note">ルール1が最優先です。上から順に条件を判定し、最初に成立したルールでロボットが動きます。</div>
+      <label for="r1">1 — 最優先</label><select id="r1"></select>
       <label for="r2">2</label><select id="r2"></select>
       <label for="r3">3</label><select id="r3"></select>
-      <button id="fight" class="primary">FIGHT</button>
-      <button id="same" style="margin-top:8px">REMATCH SAME SETUP</button>
+      <button id="fight" class="primary">試合開始</button>
+      <button id="same" style="margin-top:8px">同じ設定でもう一度</button>
 
-      <h2 style="margin-top:18px">Rule cards</h2>
+      <h2 style="margin-top:18px">ルール一覧</h2>
       <div id="cards"></div>
 
-      <h2 style="margin-top:18px">Fixed opponent</h2>
-      <div class="note">EDGE GUARD → RAM → HUNT. Same setup every bout so changes in your bot are easier to read.</div>
+      <h2 style="margin-top:18px">固定相手</h2>
+      <div class="note">相手は「土俵際回避 → 突進 → 追跡」で固定です。自分の変更による違いを見やすくするため、相手の設定は毎試合同じです。</div>
 
-      <h2 style="margin-top:18px">Bout log</h2>
+      <h2 style="margin-top:18px">試合ログ</h2>
       <div id="log" class="log"></div>
     </div>
   </div>
@@ -91,18 +91,18 @@ var r2=document.getElementById('r2');
 var r3=document.getElementById('r3');
 
 if(!ctx){
-  resultEl.textContent='Canvas unavailable';
+  resultEl.textContent='Canvasを利用できません';
   return;
 }
 
 var W=700,H=700,CX=350,CY=350,R=285,BOT_R=31;
 var rules=[
-{id:'edge',name:'EDGE GUARD',desc:'IF near the edge → turn toward center + reverse briefly'},
-{id:'push',name:'CONTACT PUSH',desc:'IF touching rival → maximum forward push'},
-{id:'ram',name:'RAM',desc:'IF rival is inside front sensor → charge straight'},
-{id:'hunt',name:'HUNT',desc:'IF rival exists → turn toward rival and advance'},
-{id:'sidestep',name:'SIDESTEP',desc:'IF rival is close but not centered → cut sideways around it'},
-{id:'search',name:'SEARCH SPIN',desc:'IF front sensor sees nothing → rotate to search'}
+{id:'edge',name:'土俵際回避',desc:'土俵際なら → 中央方向へ向きを変えて短く後退'},
+{id:'push',name:'接触押し',desc:'相手に接触中なら → 最大出力で前進'},
+{id:'ram',name:'突進',desc:'前方センサー内に相手がいれば → 直進突進'},
+{id:'hunt',name:'追跡',desc:'相手がいれば → 相手の方向を向いて前進'},
+{id:'sidestep',name:'回り込み',desc:'相手が近く正面から外れていれば → 横へ回り込む'},
+{id:'search',name:'探索旋回',desc:'前方センサーに相手がいなければ → 旋回して探索'}
 ];
 var selects=[r1,r2,r3];
 for(var i=0;i<selects.length;i++){
@@ -133,7 +133,7 @@ function addLog(s){
 function resetBots(){
   player={x:CX-105,y:CY+45,vx:0,vy:0,a:-0.18,rule:'idle'};
   enemy={x:CX+105,y:CY-45,vx:0,vy:0,a:Math.PI-0.18,rule:'idle'};
-  pRuleEl.textContent='—';oRuleEl.textContent='—';timeEl.textContent='10.0';resultEl.textContent='Ready';
+  pRuleEl.textContent='—';oRuleEl.textContent='—';timeEl.textContent='10.0';resultEl.textContent='準備完了';
 }
 function norm(a){while(a>Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;return a}
 function state(bot,other){
@@ -202,11 +202,11 @@ function out(b){
 }
 function nameRule(id){
   for(var i=0;i<rules.length;i++)if(rules[i].id===id)return rules[i].name;
-  return 'NO MATCH';
+  return '該当ルールなし';
 }
 function finish(msg){
   running=false;resultEl.textContent=msg;fightBtn.disabled=false;sameBtn.disabled=false;
-  addLog('<b>'+msg+'</b> — YOU:'+nameRule(player.rule)+' / CPU:'+nameRule(enemy.rule));
+  addLog('<b>'+msg+'</b> — 自分:'+nameRule(player.rule)+' / 相手:'+nameRule(enemy.rule));
 }
 function roundRectPath(x,y,w,h,r){
   ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
@@ -222,7 +222,7 @@ function drawBot(b,fill,label){
   ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=2;
   ctx.beginPath();ctx.moveTo(24,0);ctx.lineTo(52,0);ctx.stroke();
   ctx.restore();
-  ctx.fillStyle=label==='YOU'?'#111':'#fff';ctx.font='bold 16px -apple-system,system-ui';ctx.textAlign='center';
+  ctx.fillStyle=label==='自分'?'#111':'#fff';ctx.font='bold 16px -apple-system,system-ui';ctx.textAlign='center';
   ctx.fillText(label,b.x,b.y+5);
 }
 function draw(){
@@ -232,7 +232,7 @@ function draw(){
   ctx.beginPath();ctx.arc(CX,CY,R-10,0,Math.PI*2);ctx.fillStyle='#232831';ctx.fill();
   ctx.beginPath();ctx.arc(CX,CY,45,0,Math.PI*2);ctx.strokeStyle='#596273';ctx.lineWidth=2;ctx.stroke();
   ctx.strokeStyle='#596273';ctx.beginPath();ctx.moveTo(CX,CY-R+10);ctx.lineTo(CX,CY+R-10);ctx.stroke();
-  drawBot(player,'#e9edf2','YOU');drawBot(enemy,'#6e7785','CPU');
+  drawBot(player,'#e9edf2','自分');drawBot(enemy,'#6e7785','相手');
 }
 function tick(t){
   if(!lastT)lastT=t;
@@ -242,15 +242,15 @@ function tick(t){
     var elapsed=(t-startT)/1000,remain=Math.max(0,10-elapsed);
     timeEl.textContent=remain.toFixed(1);
     pRuleEl.textContent=nameRule(player.rule);oRuleEl.textContent=nameRule(enemy.rule);
-    if(player.rule!==lastPRule){lastPRule=player.rule;if(player.rule!=='idle')addLog('YOU → '+nameRule(player.rule))}
+    if(player.rule!==lastPRule){lastPRule=player.rule;if(player.rule!=='idle')addLog('自分 → '+nameRule(player.rule))}
     if(enemy.rule!==lastORule)lastORule=enemy.rule;
     var po=out(player),eo=out(enemy);
-    if(po&&eo)finish('DOUBLE RING-OUT');
-    else if(po)finish('CPU WINS');
-    else if(eo)finish('YOU WIN');
+    if(po&&eo)finish('両者同時に場外');
+    else if(po)finish('相手の勝ち');
+    else if(eo)finish('あなたの勝ち');
     else if(remain<=0){
       var pd=Math.hypot(player.x-CX,player.y-CY),ed=Math.hypot(enemy.x-CX,enemy.y-CY);
-      finish(pd<ed?'YOU WIN BY POSITION':ed<pd?'CPU WINS BY POSITION':'DRAW');
+      finish(pd<ed?'あなたの勝ち BY POSITION':ed<pd?'相手の勝ち BY POSITION':'引き分け');
     }
   }
   draw();
@@ -258,8 +258,8 @@ function tick(t){
 }
 function start(){
   resetBots();lastPRule='';lastORule='';logLines=[];logEl.innerHTML='';
-  startT=performance.now();lastT=startT;running=true;fightBtn.disabled=true;sameBtn.disabled=true;resultEl.textContent='Fighting';
-  addLog('Rules: '+[nameRule(r1.value),nameRule(r2.value),nameRule(r3.value)].join(' → '));
+  startT=performance.now();lastT=startT;running=true;fightBtn.disabled=true;sameBtn.disabled=true;resultEl.textContent='試合中';
+  addLog('設定ルール: '+[nameRule(r1.value),nameRule(r2.value),nameRule(r3.value)].join(' → '));
 }
 fightBtn.addEventListener('click',start);
 sameBtn.addEventListener('click',start);
